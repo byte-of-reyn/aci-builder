@@ -7,6 +7,9 @@ dist/
 build/
 .eggs/
 
+# profiles
+rch-profile.txt
+
 # credentials / secrets
 *.key
 *.pem
