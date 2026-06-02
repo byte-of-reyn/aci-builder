@@ -54,8 +54,8 @@ verbose = False
 _RE_MULTI_SEMICOLON = re.compile(r';{2,}')
 _RE_MAC_ADDRESS     = re.compile(r'^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$')
 _RE_ILLEGAL_CHAR    = re.compile(r'([!@#$%^&*()<>?\'"{[}\]|\\`~]+)')
-_RE_EMPTY_LLADDR    = re.compile(r';llAddr:::')
-_RE_EMPTY_MAC       = re.compile(r';mac:::')
+_RE_EMPTY_LLADDR    = re.compile(r';llAddr=::')
+_RE_EMPTY_MAC       = re.compile(r';mac=::')
 _RE_URL_FORMAT      = re.compile(r'^\s*https://.*')
 
 profiles = {}
@@ -98,6 +98,9 @@ profiles['dhcpOption'] = []
 profiles['ndProxySubnet'] = []
 profiles['staticPath'] = []
 
+profiles['esg'] = []
+profiles['epgToEsg'] = []
+
 profiles['switch'] = []
 profiles['switchPolicy'] = []
 profiles['switchProfile'] = []
@@ -120,7 +123,9 @@ def parse_args():
     parser.add_argument('--in_file', required=True, help='Input file for APIC configuration.')
     parser.add_argument('--url', required=False, help='URL to the APIC instance')
     parser.add_argument('--user', required=False, help='Username for APIC access')
+    parser.add_argument('--password', required=False, help='APIC password (overrides APIC_PASSWORD env var and interactive prompt)')
     parser.add_argument('--validate', action='store_true', required=False, help='Verifies if build file is valid and outlines located errors')
+    parser.add_argument('--dry-run', action='store_true', required=False, help='Parse and build objects but skip the final APIC commit')
     parser.add_argument('--verbose', required=False, action='store_true', help='Verbose logging output.')
     args = parser.parse_args()
 
@@ -155,7 +160,7 @@ def buildfile_check_clean(line, line_count):
     # which would trigger false-positive duplicate-colon hits if left in place.
     # They are reattached after cleaning so downstream parsing still sees them.
     removed_holder = []
-    for pat, placeholder in [(_RE_EMPTY_MAC, ';mac:::'), (_RE_EMPTY_LLADDR, ';llAddr:::')]:
+    for pat, placeholder in [(_RE_EMPTY_MAC, ';mac=::'), (_RE_EMPTY_LLADDR, ';llAddr=::')]:
         if re.search(pat, line_check[LINE]):
             removed_holder.append(placeholder)
             line_check[LINE] = re.sub(pat, '', line_check[LINE])
@@ -178,7 +183,7 @@ def buildfile_check_clean(line, line_count):
     for curr_string in line_check[LINE].split(';'):
         # Split on first colon only — values may contain colons (MAC dash-notation,
         # IPv6 llAddr, etc.) and should not be further fragmented here
-        tup = curr_string.split(':', 1)
+        tup = curr_string.split('=', 1)
         if len(tup) < 2:
             continue
         attribute, value = tup[0], tup[1]
@@ -187,7 +192,7 @@ def buildfile_check_clean(line, line_count):
             continue
 
         if attribute == 'mac':
-            if not re.match(_RE_MAC_ADDRESS, value) and value != '::':
+            if not re.match(_RE_MAC_ADDRESS, value) and value not in ('::', ''):
                 print('ERROR: Invalid MAC address {} on line {}.\n{}'.format(value, line_count, line_check[LINE]))
                 line_check[RESULT] = False
                 break
@@ -219,6 +224,8 @@ def main():
         if args.verbose:
             print("STATUS: Verbose output enabled.")
             verbose = True
+        if getattr(args, 'dry_run', False):
+            print("STATUS: Dry-run mode — objects will be built but not committed to the APIC.")
 
         #print header to console
         print("\n\n*************************************************************************************")
@@ -247,6 +254,7 @@ def main():
         buildFile = args.in_file
         testCreds = False
         validate_build = False
+        dry_run = getattr(args, 'dry_run', False)
         if args.validate:
             validate_build = True
         else:
@@ -269,11 +277,14 @@ def main():
                     print("Exiting script.")
                     sys.exit(1)
 
-            #obtain server password
-            password = getpass.getpass(prompt='Enter APIC password: ', stream=None) 
+            #obtain server password — CLI flag > env var > interactive
+            if args.password:
+                password = args.password
+            elif os.environ.get('APIC_PASSWORD'):
+                password = os.environ['APIC_PASSWORD']
+            else:
+                password = getpass.getpass(prompt='Enter APIC password: ', stream=None)
             print()
-            #password = 'N0rd1cL3gacy)!'
-            #password = 'did@t@123'
 
         #read loadfile
         file = open(buildFile, "r")
@@ -318,7 +329,7 @@ def main():
                         
                         #extract attributes for the current line and sort in dictionaries
                         for attribute in temp_list:
-                            tup = attribute.split(":", 1)
+                            tup = attribute.split("=", 1)
                             if len(tup) < 2:
                                 continue
                             if tup[0] == 'category':
@@ -329,18 +340,21 @@ def main():
                                 tempDict[tup[0]] = tup[1].rstrip().replace("\n", '')
                                 tempDict['category'] = category
                                 tempDict['subCategory'] = subCategory
+                        _matched = True
                         if category == 'tenant':
                             if subCategory == 'application-profile':
                                 profiles['application-profile'].append(tempDict)
-                            if subCategory == 'tenant':
+                            elif subCategory == 'tenant':
                                 profiles['tenant'].append(tempDict)
-                            if subCategory == 'aaep':
+                            elif subCategory == 'aaep':
                                 profiles['aaep'].append(tempDict)
-                            if subCategory == 'dhcpOptionPolicy':
+                            elif subCategory == 'dhcpOptionPolicy':
                                 profiles['dhcpOptionPolicy'].append(tempDict)
-                            if subCategory == 'dhcpOption':
+                            elif subCategory == 'dhcpOption':
                                 profiles['dhcpOption'].append(tempDict)
-                        if category == 'global':
+                            else:
+                                _matched = False
+                        elif category == 'global':
                             if subCategory == 'physicalDomain':
                                 profiles['domain'].append(tempDict)
                             elif subCategory == 'routedDomain':
@@ -349,9 +363,15 @@ def main():
                                 profiles['vlanPool'].append(tempDict)
                             elif subCategory == 'vlanPoolRange':
                                 profiles['vlanPoolRange'].append(tempDict)
+                            else:
+                                _matched = False
                         elif category == 'network':
                             if subCategory == 'epg':
                                 profiles['epg'].append(tempDict)
+                            elif subCategory == 'esg':
+                                profiles['esg'].append(tempDict)
+                            elif subCategory == 'epgToEsg':
+                                profiles['epgToEsg'].append(tempDict)
                             elif subCategory == 'bridge-domain':
                                 profiles['bridge-domain'].append(tempDict)
                             elif subCategory == 'dhcpRelayLabel':
@@ -392,6 +412,8 @@ def main():
                                 profiles['BGPPeer'].append(tempDict)
                             elif subCategory == 'staticPath':
                                 profiles['staticPath'].append(tempDict)
+                            else:
+                                _matched = False
                         elif category == 'security':
                             if subCategory == 'contract':
                                 profiles['security'].append(tempDict)
@@ -401,20 +423,30 @@ def main():
                                 profiles['security'].append(tempDict)
                             elif subCategory == 'filterEntry':
                                 profiles['security'].append(tempDict)
-                        if category == 'switch':
+                            else:
+                                _matched = False
+                        elif category == 'switch':
                             if subCategory == 'leaf':
                                 profiles['switchProfile'].append(tempDict)
-                            if subCategory == 'spine':
+                            elif subCategory == 'spine':
                                 profiles['switchProfile'].append(tempDict)
-                        if category == 'switchPolicy':
+                            else:
+                                _matched = False
+                        elif category == 'switchPolicy':
                             if subCategory == 'leafPolicyGroup':
                                 profiles['switchPolicy'].append(tempDict)
-                            if subCategory == 'spinePolicyGroup':
+                            elif subCategory == 'spinePolicyGroup':
                                 profiles['switchPolicy'].append(tempDict)
-                            if subCategory == 'vpcProtectionGroup':
+                            elif subCategory == 'vpcProtectionGroup':
                                 profiles['switchPolicy'].append(tempDict)
-                        if category == 'interface':
+                            else:
+                                _matched = False
+                        elif category == 'interface':
                             profiles['interface'].append(tempDict)
+                        else:
+                            _matched = False
+                        if not _matched:
+                            print('WARNING: Unknown category/subCategory "{}/{}" on line {} — line skipped.'.format(category, subCategory, line_count))
                     else:
                         print('ERROR: Problem detected in buildfile. Please repair the located errors and run the application again.')
                         print('Exiting program.')
@@ -693,6 +725,60 @@ def main():
                     vRsCons = cobra.model.fv.RsCons(fvAEPg, tnVzBrCPName=profile['contractConsume'])
                 temp_epg[profile['name']] = fvAEPg
 
+            #load esg objects
+            temp_esg = {}
+            if verbose:
+                count = len(profiles['esg'])
+                if count > 0:
+                    print('STATUS: Found x{} ESGs. Loading into top-level object.'.format(count))
+                else:
+                    print('STATUS: ESGs have not been defined within the build file.')
+            for profile in profiles['esg']:
+                tenant_name = profile.get('tenant') or temp_app_profile_tenant.get(profile.get('application-profile', ''), '')
+                if tenant_name in temp_tenant:
+                    fvTenant = temp_tenant[tenant_name]
+                else:
+                    fvTenant = cobra.model.fv.Tenant(polUni, name=tenant_name)
+                    temp_tenant[tenant_name] = fvTenant
+                if profile['application-profile'] in temp_app_profile:
+                    fvAp = temp_app_profile[profile['application-profile']]
+                else:
+                    fvAp = cobra.model.fv.Ap(fvTenant, name=profile['application-profile'])
+                    temp_app_profile[profile['application-profile']] = fvAp
+                fvESg = cobra.model.fv.ESg(fvAp,
+                    name=profile['name'],
+                    nameAlias=profile.get('nameAlias', ''),
+                    descr=profile.get('descr', ''),
+                    pcEnfPref=profile.get('pcEnfPref', 'unenforced'),
+                    prefGrMemb=profile.get('prefGrMemb', 'exclude'),
+                    matchT=profile.get('matchT', 'AtleastOne'),
+                    prio=profile.get('prio', 'unspecified'))
+                if profile.get('vrf'):
+                    cobra.model.fv.RsScope(fvESg, tnFvCtxName=profile['vrf'])
+                if profile.get('contractProvide'):
+                    cobra.model.fv.RsProv(fvESg, tnVzBrCPName=profile['contractProvide'])
+                if profile.get('contractConsume'):
+                    cobra.model.fv.RsCons(fvESg, tnVzBrCPName=profile['contractConsume'])
+                temp_esg[profile['name']] = fvESg
+
+            #assign EPGs to ESGs via EPgSelector
+            if verbose and profiles['epgToEsg']:
+                print('STATUS: Found x{} EPG-to-ESG assignments. Loading into top-level object.'.format(len(profiles['epgToEsg'])))
+            for profile in profiles['epgToEsg']:
+                esg_name = profile.get('esg', '')
+                epg_name = profile.get('epg', '')
+                tenant_name = profile.get('tenant', '')
+                ap_name = profile.get('application-profile', '')
+                if esg_name not in temp_esg:
+                    print('WARNING: ESG "{}" not found for EPG-to-ESG assignment on line — skipped.'.format(esg_name))
+                    continue
+                fvESg = temp_esg[esg_name]
+                epg_dn = 'uni/tn-{}/ap-{}/epg-{}'.format(tenant_name, ap_name, epg_name)
+                cobra.model.fv.EPgSelector(fvESg,
+                    name=profile.get('name', epg_name),
+                    matchEpgDn=epg_dn,
+                    matchScope=profile.get('matchScope', 'all'))
+
             #load vrf objects
             #if verbose:
             #    count = len(vrf.keys())
@@ -827,7 +913,7 @@ def main():
                     temp_bridge_domain[profile['bridge-domain']] = fvBD
                 dhcpLbl = cobra.model.dhcp.Lbl(fvBD, descr=profile['descr'], name=profile['name'], nameAlias=profile['nameAlias'], owner=profile.get('owner', 'tenant'))
                 if profile.get('tnDhcpOptionPolName'):
-                    dhcpRsDhcpOptionPol = cobra.model.dhcp.RsDhcpOptionPol(dhcpLbl, tType='name', tnDhcpOptionPolName=profile['tnDhcpOptionPolName'])
+                    dhcpRsDhcpOptionPol = cobra.model.dhcp.RsDhcpOptionPol(dhcpLbl, tnDhcpOptionPolName=profile['tnDhcpOptionPolName'])
             #load l3out profiles
             for profile in profiles['l3out']:
                 if verbose:
@@ -1331,15 +1417,19 @@ def main():
             sys.exit(1)
 
         #attempt to perform final commit
-        try:
-            config_request = cobra.mit.request.ConfigRequest()
-            config_request.addMo(polUni)
-            session.commit(config_request)
-        except cobra.mit.request.CommitError as err:
-            print('ERROR: An error occured commiting defined MO to the APIC', url)
-            print(err)
-            print('Exiting program.')
-            exit(1)
+        if dry_run:
+            print('STATUS: Dry-run complete — no changes committed to the APIC.')
+        else:
+            try:
+                config_request = cobra.mit.request.ConfigRequest()
+                config_request.addMo(polUni)
+                session.commit(config_request)
+                print('STATUS: Push complete. All objects committed to', url)
+            except cobra.mit.request.CommitError as err:
+                print('ERROR: An error occured commiting defined MO to the APIC', url)
+                print(err)
+                print('Exiting program.')
+                exit(1)
 
         #output application runtime
         print("\n*** Estimated runtime: ",datetime.now()-start, "***\n")

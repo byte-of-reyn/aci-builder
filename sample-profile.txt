@@ -10,42 +10,43 @@
 
 ### VLAN POOLS ###
 # allocMode: static | dynamic
-category:global;subCategory:vlanPool;name:sample_vlan_pool;nameAlias:;descr:Sample VLAN pool;allocMode:static
+category=global;subCategory=vlanPool;name=sample_vlan_pool;nameAlias=;descr=Sample VLAN pool;allocMode=static
 
 ### VLAN POOL RANGES ###
 # allocMode: static | dynamic | inherit
-category:global;subCategory:vlanPoolRange;vlanPool:sample_vlan_pool;name:sample_range;nameAlias:;descr:;allocMode:inherit;startVlan:100;endVlan:199
+category=global;subCategory=vlanPoolRange;vlanPool=sample_vlan_pool;name=sample_range;nameAlias=;descr=;allocMode=inherit;startVlan=100;endVlan=199
 
 ### VLAN POOL — L3 OUT (routed domain) ###
-category:global;subCategory:vlanPool;name:sample_l3_vlan_pool;nameAlias:;descr:L3Out VLAN pool;allocMode:static
-category:global;subCategory:vlanPoolRange;vlanPool:sample_l3_vlan_pool;name:sample_l3_range;nameAlias:;descr:;allocMode:inherit;startVlan:200;endVlan:209
+category=global;subCategory=vlanPool;name=sample_l3_vlan_pool;nameAlias=;descr=L3Out VLAN pool;allocMode=static
+category=global;subCategory=vlanPoolRange;vlanPool=sample_l3_vlan_pool;name=sample_l3_range;nameAlias=;descr=;allocMode=inherit;startVlan=200;endVlan=209
 
 ### PHYSICAL DOMAIN ###
-category:global;subCategory:physicalDomain;name:sample_phyDom;nameAlias:;descr:;poolName:sample_vlan_pool;poolType:static;securityDomain:
+category=global;subCategory=physicalDomain;name=sample_phyDom;nameAlias=;descr=;poolName=sample_vlan_pool;poolType=static;securityDomain=
 
 ### ROUTED (L3) DOMAIN ###
-category:global;subCategory:routedDomain;name:sample_l3Dom;nameAlias:;descr:;poolName:sample_l3_vlan_pool;poolType:static;securityDomain:
+category=global;subCategory=routedDomain;name=sample_l3Dom;nameAlias=;descr=;poolName=sample_l3_vlan_pool;poolType=static;securityDomain=
 
 ################################################################
 ### TENANT OBJECTS
 ################################################################
 
 ### TENANTS ###
-category:tenant;subCategory:tenant;name:SAMPLE_TENANT;descr:Sample tenant
+category=tenant;subCategory=tenant;name=SAMPLE_TENANT;descr=Sample tenant
 
 ### APPLICATION PROFILES ###
-category:tenant;subCategory:application-profile;tenant:SAMPLE_TENANT;name:sample_app;nameAlias:;descr:
+category=tenant;subCategory=application-profile;tenant=SAMPLE_TENANT;name=sample_app;nameAlias=;descr=
 
 ### AAEP ###
-category:tenant;subCategory:aaep;name:sample_aaep;nameAlias:;descr:
+category=tenant;subCategory=aaep;name=sample_aaep;nameAlias=;descr=
 
 ### DHCP OPTION POLICY ###
 # parent policy that groups one or more DHCP options
-category:tenant;subCategory:dhcpOptionPolicy;tenant:SAMPLE_TENANT;name:sample_dhcp_opt_pol;nameAlias:;descr:
+category=tenant;subCategory=dhcpOptionPolicy;tenant=SAMPLE_TENANT;name=sample_dhcp_opt_pol;nameAlias=;descr=
 
 ### DHCP OPTIONS ###
 # data: the option value (e.g. a server IP for option 6 / DNS)
-category:tenant;subCategory:dhcpOption;dhcpOptionPolicy:sample_dhcp_opt_pol;name:6;nameAlias:;data:192.168.1.1
+# ACI only allows option 79 (DHCPv6 relay address override) in dhcpOptionPolicy — skip option 6 here
+#category=tenant;subCategory=dhcpOption;dhcpOptionPolicy=sample_dhcp_opt_pol;name=6;nameAlias=;data=192.168.1.1
 
 ################################################################
 ### SECURITY OBJECTS
@@ -54,21 +55,21 @@ category:tenant;subCategory:dhcpOption;dhcpOptionPolicy:sample_dhcp_opt_pol;name
 ### CONTRACTS ###
 # scope: global | tenant | vrf | application-profile
 # prio: unspecified | level1 | level2 | level3 | level4 | level5 | level6
-category:security;subCategory:contract;tenant:SAMPLE_TENANT;name:sample_con;nameAlias:;descr:;prio:unspecified;targetDscp:unspecified;scope:tenant
+category=security;subCategory=contract;tenant=SAMPLE_TENANT;name=sample_con;nameAlias=;descr=;prio=unspecified;targetDscp=unspecified;scope=tenant
 
 ### SUBJECTS ###
 # revFltPorts: yes | no
-category:security;subCategory:subject;contract:sample_con;name:sample_subj;nameAlias:;descr:;consMatchT:AtleastOne;provMatchT:AtleastOne;prio:unspecified;revFltPorts:yes;targetDscp:unspecified
+category=security;subCategory=subject;contract=sample_con;name=sample_subj;nameAlias=;descr=;consMatchT=AtleastOne;provMatchT=AtleastOne;prio=unspecified;revFltPorts=yes;targetDscp=unspecified
 
 ### FILTERS ###
 # subject: link this filter to a subject on creation
-category:security;subCategory:filter;tenant:SAMPLE_TENANT;name:sample_filter;nameAlias:;descr:;subject:sample_subj
+category=security;subCategory=filter;tenant=SAMPLE_TENANT;name=sample_filter;nameAlias=;descr=;subject=sample_subj
 
 ### FILTER ENTRIES ###
 # etherT: unspecified | ip | arp | fcoe | mac_security | mpls_ucast | trill
 # prot: unspecified | tcp | udp | icmp | icmpv6 | eigrp | egp | igmp | igp | l2tp | ospfigp | pim
 # arpOpc: unspecified | req | reply
-category:security;subCategory:filterEntry;filter:sample_filter;name:sample_entry;nameAlias:;descr:;etherT:ip;prot:tcp;arpOpc:unspecified;applyToFrag:no;dFromPort:https;dToPort:https;sFromPort:unspecified;sToPort:unspecified;icmpv4T:unspecified;icmpv6T:unspecified;matchDscp:unspecified;stateful:yes;tcpRules:
+category=security;subCategory=filterEntry;filter=sample_filter;name=sample_entry;nameAlias=;descr=;etherT=ip;prot=tcp;arpOpc=unspecified;applyToFrag=no;dFromPort=https;dToPort=https;sFromPort=unspecified;sToPort=unspecified;icmpv4T=unspecified;icmpv6T=unspecified;matchDscp=unspecified;stateful=yes;tcpRules=
 
 ################################################################
 ### NETWORK OBJECTS
@@ -78,7 +79,7 @@ category:security;subCategory:filterEntry;filter:sample_filter;name:sample_entry
 # knwMcastAct: permit | deny
 # pcEnfPref: enforced | unenforced
 # pcEnfDir: ingress | egress
-category:network;subCategory:vrf;tenant:SAMPLE_TENANT;name:sample_vrf;nameAlias:;descr:;knwMcastAct:permit;ipDataPlaneLearning:enabled;bdEnforcedEnable:no;pcEnfPref:enforced;pcEnfDir:ingress
+category=network;subCategory=vrf;tenant=SAMPLE_TENANT;name=sample_vrf;nameAlias=;descr=;knwMcastAct=permit;ipDataPlaneLearning=enabled;bdEnforcedEnable=no;pcEnfPref=enforced;pcEnfDir=ingress
 
 ### EPG ###
 # domain: physical domain name (uni/phys-)
@@ -87,45 +88,45 @@ category:network;subCategory:vrf;tenant:SAMPLE_TENANT;name:sample_vrf;nameAlias:
 # contractConsume / contractProvide: contract name (leave blank if none)
 # fwdCtrl: proxy-arp | (empty)
 # prefGrMemb: include | exclude
-category:network;subCategory:epg;application-profile:sample_app;tenant:SAMPLE_TENANT;name:sample_epg;nameAlias:;descr:;domain:sample_phyDom;l3Domain:;vmmDomain:;contractConsume:sample_con;contractProvide:sample_con;floodOnEncap:disabled;fwdCtrl:proxy-arp;hasMcastSource:no;isAttrBasedEPg:no;matchT:AtleastOne;pcEnfPref:enforced;prefGrMemb:exclude;shutdown:no
+category=network;subCategory=epg;application-profile=sample_app;tenant=SAMPLE_TENANT;name=sample_epg;nameAlias=;descr=;domain=sample_phyDom;l3Domain=;vmmDomain=;contractConsume=sample_con;contractProvide=sample_con;floodOnEncap=disabled;fwdCtrl=proxy-arp;hasMcastSource=no;isAttrBasedEPg=no;matchT=AtleastOne;pcEnfPref=enforced;prefGrMemb=exclude;shutdown=no
 
 ### BRIDGE DOMAIN ###
 # unkMacUcastAct: proxy | flood
 # unkMcastAct: flood | opt-flood
 # multiDstPktAct: bd-flood | encap-flood | drop
 # vmac: not-applicable | any valid MAC
-category:network;subCategory:bridge-domain;epg:sample_epg;vrf:sample_vrf;tenant:SAMPLE_TENANT;name:sample_bd;nameAlias:;descr:;type:regular;unicastRoute:yes;unkMacUcastAct:proxy;unkMcastAct:flood;v6unkMcastAct:flood;vmac:not-applicable;OptimizeWanBandwidth:no;arpFlood:yes;epClear:no;epMoveDetectMode:;hostBasedRouting:yes;intersiteBumTrafficAllow:no;intersiteL2Stretch:no;ipLearning:yes;limitIpLearnToSubnets:yes;llAddr:::;mac:00-22-BD-F8-19-FF;mcastAllow:no;multiDstPktAct:bd-flood
+category=network;subCategory=bridge-domain;epg=sample_epg;vrf=sample_vrf;tenant=SAMPLE_TENANT;name=sample_bd;nameAlias=;descr=;type=regular;unicastRoute=yes;unkMacUcastAct=proxy;unkMcastAct=flood;v6unkMcastAct=flood;vmac=not-applicable;OptimizeWanBandwidth=no;arpFlood=yes;epClear=no;epMoveDetectMode=;hostBasedRouting=yes;intersiteBumTrafficAllow=no;intersiteL2Stretch=no;ipLearning=yes;limitIpLearnToSubnets=yes;llAddr=::;mac=00-22-BD-F8-19-FF;mcastAllow=no;multiDstPktAct=bd-flood
 
 ### SUBNET (under bridge-domain) ###
 # scope: private | public | shared — comma-separated for multiple flags
 # preferred: yes | no
 # virtual: yes | no (for vPC primary)
-category:network;subCategory:subnet;bridge-domain:sample_bd;tenant:SAMPLE_TENANT;name:;nameAlias:;descr:;ip:10.0.0.1/24;preferred:yes;virtual:no;scope:private
+category=network;subCategory=subnet;bridge-domain=sample_bd;tenant=SAMPLE_TENANT;name=;nameAlias=;descr=;ip=10.0.0.1/24;preferred=yes;virtual=no;scope=private
 
 ### ND PROXY RA SUBNET (IPv6, under bridge-domain) ###
 # ctrl: no-autoconfig | no-onlink | no-advertise — leave blank for defaults
-category:network;subCategory:ndProxySubnet;bridge-domain:sample_bd;tenant:SAMPLE_TENANT;ip:2001:db8::/64;ctrl:no-autoconfig;descr:
+category=network;subCategory=ndProxySubnet;bridge-domain=sample_bd;tenant=SAMPLE_TENANT;ip=fc00::1/64;ctrl=no-autoconfig;descr=
 
 ### DHCP RELAY LABEL (attaches relay policy to bridge-domain) ###
 # owner: tenant | infra
 # tnDhcpOptionPolName: leave blank if no option policy
-category:network;subCategory:dhcpRelayLabel;bridge-domain:sample_bd;tenant:SAMPLE_TENANT;name:sample_dhcp_label;nameAlias:;descr:;owner:tenant;tnDhcpOptionPolName:sample_dhcp_opt_pol
+category=network;subCategory=dhcpRelayLabel;bridge-domain=sample_bd;tenant=SAMPLE_TENANT;name=sample_dhcp_label;nameAlias=;descr=;owner=tenant;tnDhcpOptionPolName=sample_dhcp_opt_pol
 
 ### BRIDGE DOMAIN TO L3OUT LINK ###
-category:network;subCategory:bridgeDomainLink;tenant:SAMPLE_TENANT;bridge-domain:sample_bd;l3out:sample_l3out
+category=network;subCategory=bridgeDomainLink;tenant=SAMPLE_TENANT;bridge-domain=sample_bd;l3out=sample_l3out
 
 ### STATIC EPG PATH BINDING — ACCESS PORT ###
 # pathType: access | pc | vpc
 # mode: regular (trunk) | untagged (access) | native (802.1p)
 # instrImedcy: immediate | lazy
 # encap: VLAN ID only (e.g. 100) — vlan- prefix is added automatically
-category:network;subCategory:staticPath;tenant:SAMPLE_TENANT;application-profile:sample_app;epg:sample_epg;encap:100;mode:regular;instrImedcy:immediate;pathType:access;podID:1;nodeID:101;card:1;port:1;descr:
+category=network;subCategory=staticPath;tenant=SAMPLE_TENANT;application-profile=sample_app;epg=sample_epg;encap=100;mode=regular;instrImedcy=immediate;pathType=access;podID=1;nodeID=101;card=1;port=1;descr=
 
 ### STATIC EPG PATH BINDING — PORT CHANNEL ###
-category:network;subCategory:staticPath;tenant:SAMPLE_TENANT;application-profile:sample_app;epg:sample_epg;encap:100;mode:regular;instrImedcy:immediate;pathType:pc;podID:1;nodeID:101;pathep:sample_pc_pol_grp;descr:
+category=network;subCategory=staticPath;tenant=SAMPLE_TENANT;application-profile=sample_app;epg=sample_epg;encap=100;mode=regular;instrImedcy=immediate;pathType=pc;podID=1;nodeID=101;pathep=sample_pc_pol_grp;descr=
 
 ### STATIC EPG PATH BINDING — VPC ###
-category:network;subCategory:staticPath;tenant:SAMPLE_TENANT;application-profile:sample_app;epg:sample_epg;encap:100;mode:regular;instrImedcy:immediate;pathType:vpc;podID:1;nodeID:101;nodeID2:102;pathep:sample_vpc_pol_grp;descr:
+category=network;subCategory=staticPath;tenant=SAMPLE_TENANT;application-profile=sample_app;epg=sample_epg;encap=100;mode=regular;instrImedcy=immediate;pathType=vpc;podID=1;nodeID=101;nodeID2=102;pathep=sample_vpc_pol_grp;descr=
 
 ################################################################
 ### L3OUT OBJECTS
@@ -133,64 +134,64 @@ category:network;subCategory:staticPath;tenant:SAMPLE_TENANT;application-profile
 
 ### L3OUT ###
 # enablePIM: yes | no
-category:network;subCategory:l3out;tenant:SAMPLE_TENANT;name:sample_l3out;nameAlias:;descr:;targetDscp:unspecified;enablePIM:no;vrf:sample_vrf;extDomain:sample_l3Dom
+category=network;subCategory=l3out;tenant=SAMPLE_TENANT;name=sample_l3out;nameAlias=;descr=;targetDscp=unspecified;enablePIM=no;vrf=sample_vrf;extDomain=sample_l3Dom
 
 ### L3OUT PROTOCOL ENABLEMENT ###
 # protocols: bgp | ospf | eigrp — comma-separated for multiple
 # OSPF fields only required when protocols includes ospf
 # areaType: regular | stub | nssa
 # EIGRP fields only required when protocols includes eigrp
-category:network;subCategory:l3OutProtocol;L3Out:sample_l3out;protocols:ospf;areaCost:1;areaCtrl:redistribute,summary;areaId:0.0.0.1;areaType:regular;asn:
+category=network;subCategory=l3OutProtocol;L3Out=sample_l3out;protocols=ospf;areaCost=1;areaCtrl=redistribute,summary;areaId=0.0.0.1;areaType=regular;asn=
 
 ### NODE PROFILE ###
 # rtrIdLoopBack: yes | no
-category:network;subCategory:nodeProfile;L3Out:sample_l3out;name:sample_node_profile;nameAlias:;descr:;targetDscp:unspecified;podID:1;nodeID:101;rtrId:10.0.0.101;rtrIdLoopBack:yes
+category=network;subCategory=nodeProfile;L3Out=sample_l3out;name=sample_node_profile;nameAlias=;descr=;targetDscp=unspecified;podID=1;nodeID=101;rtrId=10.0.0.101;rtrIdLoopBack=yes
 
 ### INTERFACE PROFILE — ROUTED SUB-INTERFACE ###
 # ifInstT: sub-interface | l3-port | ext-svi
 # llAddr: :: for default link-local
 # Leave optional profile fields blank to use fabric defaults
-category:network;subCategory:intProfile;nodeProfile:sample_node_profile;name:sample_int_profile;nameAlias:;descr:;ifInstT:sub-interface;addr:10.0.0.1/30;mac:;encapVlan:100;llAddr:::;mtu:inherit;podID:1;nodeID:101;chassisCard:1;chassisPort:1;targetDscp:unspecified;tnNdIfPolName:;tnQosDppPolName:;bfdProfile:;PIMProfile:;OSPFIntProfile:;EIGRPIntProfile:;BGPIntProfile:;authKeyId:1;authType:none
+category=network;subCategory=intProfile;nodeProfile=sample_node_profile;name=sample_int_profile;nameAlias=;descr=;ifInstT=sub-interface;addr=10.0.0.1/30;mac=;encapVlan=100;llAddr=::;mtu=inherit;podID=1;nodeID=101;chassisCard=1;chassisPort=1;targetDscp=unspecified;tnNdIfPolName=;tnQosDppPolName=;bfdProfile=;PIMProfile=;OSPFIntProfile=;EIGRPIntProfile=;BGPIntProfile=;authKeyId=1;authType=none
 
 ### INTERFACE PROFILE — ROUTED PORT (l3-port) ###
-category:network;subCategory:intProfile;nodeProfile:sample_node_profile;name:sample_l3port_profile;nameAlias:;descr:;ifInstT:l3-port;addr:10.0.0.1/30;mac:;encapVlan:;llAddr:::;mtu:inherit;podID:1;nodeID:101;chassisCard:1;chassisPort:2;targetDscp:unspecified;tnNdIfPolName:;tnQosDppPolName:;bfdProfile:;PIMProfile:;OSPFIntProfile:;EIGRPIntProfile:;BGPIntProfile:;authKeyId:1;authType:none
+category=network;subCategory=intProfile;nodeProfile=sample_node_profile;name=sample_l3port_profile;nameAlias=;descr=;ifInstT=l3-port;addr=10.0.0.5/30;mac=;encapVlan=;llAddr=::;mtu=inherit;podID=1;nodeID=101;chassisCard=1;chassisPort=2;targetDscp=unspecified;tnNdIfPolName=;tnQosDppPolName=;bfdProfile=;PIMProfile=;OSPFIntProfile=;EIGRPIntProfile=;BGPIntProfile=;authKeyId=1;authType=none
 
 ### INTERFACE PROFILE — SVI ###
 # mode: regular | native | untagged
 # accessProfile: the port/channel policy group name for SVI
-category:network;subCategory:intProfile;nodeProfile:sample_node_profile;name:sample_svi_profile;nameAlias:;descr:;ifInstT:ext-svi;addr:10.0.0.1/30;mac:;encapVlan:100;llAddr:::;mtu:inherit;mode:regular;podID:1;nodeID:101;accessProfile:sample_vpc_pol_grp;targetDscp:unspecified;tnNdIfPolName:;tnQosDppPolName:;bfdProfile:;PIMProfile:;OSPFIntProfile:;EIGRPIntProfile:;BGPIntProfile:;authKeyId:1;authType:none
+category=network;subCategory=intProfile;nodeProfile=sample_node_profile;name=sample_svi_profile;nameAlias=;descr=;ifInstT=ext-svi;addr=10.0.0.9/30;mac=;encapVlan=100;llAddr=::;mtu=inherit;mode=regular;podID=1;nodeID=101;accessProfile=sample_vpc_pol_grp;targetDscp=unspecified;tnNdIfPolName=;tnQosDppPolName=;bfdProfile=;PIMProfile=;OSPFIntProfile=;EIGRPIntProfile=;BGPIntProfile=;authKeyId=1;authType=none
 
 ### INTERFACE PROTOCOL (links routing protocol profile to node) ###
 # protocol: eigrp | ospf
-category:network;subCategory:intProtocol;nodeProfile:sample_node_profile;protocol:ospf;protocolProfile:sample_ospf_int_profile
+category=network;subCategory=intProtocol;nodeProfile=sample_node_profile;protocol=ospf;protocolProfile=sample_ospf_int_profile
 
 ### STATIC ROUTE ###
-category:network;subCategory:staticRoute;nodeProfile:sample_node_profile;podID:1;nodeID:101;ip:0.0.0.0/0;nhAddr:10.0.0.2
+category=network;subCategory=staticRoute;nodeProfile=sample_node_profile;podID=1;nodeID=101;ip=0.0.0.0/0;nhAddr=10.0.0.2
 
 ### BGP PEER ###
 # ctrl: send-com | send-ext-com | allow-self-as | as-override | dis-peer-as-check | nh-self — comma-separated
 # peerCtrl: bfd | dis-conn-check — comma-separated, or leave blank
-category:network;subCategory:BGPPeer;nodeProfile:sample_node_profile;localAddr:10.0.0.1;allowedSelfAsCnt:3;ctrl:send-com,send-ext-com;peerCtrl:bfd;multihopValue:1;weight:0;prefixPolicy:;localASN:65001;remoteASN:65002
+category=network;subCategory=BGPPeer;nodeProfile=sample_node_profile;localAddr=10.0.0.2;allowedSelfAsCnt=3;ctrl=send-com,send-ext-com;peerCtrl=bfd;multihopValue=1;weight=0;prefixPolicy=;localASN=65001;remoteASN=65002
 
 ### EXTERNAL NETWORK (L3Out EPG) ###
 # prefGrMemb: include | exclude
 # prio: unspecified | level1–level6
-category:network;subCategory:networks;L3Out:sample_l3out;name:sample_ext_epg;descr:;prefGrMemb:exclude;prio:unspecified;targetDscp:unspecified;conConsume:sample_con;conProvide:
+category=network;subCategory=networks;L3Out=sample_l3out;name=sample_ext_epg;descr=;prefGrMemb=exclude;prio=unspecified;targetDscp=unspecified;conConsume=sample_con;conProvide=
 
 ### EXTERNAL SUBNETS ###
 # aggregate: import-rtctrl | export-rtctrl — comma-separated, or leave blank
-category:network;subCategory:subnets;network:sample_ext_epg;L3Out:sample_l3out;ip:0.0.0.0/0;aggregate:;descr:;tnQosCustomPolName:
+category=network;subCategory=subnets;network=sample_ext_epg;L3Out=sample_l3out;ip=0.0.0.0/0;aggregate=;descr=;tnQosCustomPolName=
 
 ### L3OUT ROUTE MAP (export / import) ###
 # direction: export | import
-category:network;subCategory:l3OutRouteMap;L3Out:sample_l3out;direction:export;contextName:sample_ctx
+category=network;subCategory=l3OutRouteMap;L3Out=sample_l3out;direction=export;contextName=sample_ctx
 
 ### ROUTE MAP MATCH RULE ###
 # aggregate: yes | no
-category:network;subCategory:routeMapMatch;tenant:SAMPLE_TENANT;type:match;name:sample_match_rule;ip:10.0.0.0/8;aggregate:yes;descr:Match internal summary
+category=network;subCategory=routeMapMatch;tenant=SAMPLE_TENANT;type=match;name=sample_match_rule;ip=10.0.0.0/8;aggregate=yes;descr=Match internal summary
 
 ### ROUTE MAP RULE BINDING ###
-category:network;subCategory:routeMapRules;L3Out:sample_l3out;context:sample_ctx;subjectName:sample_match_rule
+category=network;subCategory=routeMapRules;L3Out=sample_l3out;context=sample_ctx;subjectName=sample_match_rule
 
 ################################################################
 ### SWITCH POLICY OBJECTS
@@ -198,20 +199,20 @@ category:network;subCategory:routeMapRules;L3Out:sample_l3out;context:sample_ctx
 
 ### LEAF SWITCH POLICY GROUP ###
 # Leave policy fields blank to accept fabric defaults
-category:switchPolicy;subCategory:leafPolicyGroup;name:sample_leaf_pol_grp;descr:;tnBfdIpv4InstPolName:;tnBfdIpv6InstPolName:;tnMonInfraPolName:;tnFcInstPolName:;tnL2NodeAuthPolName:;tnTopoctrlFwdScaleProfilePolName:;tnFcFabricPolName:;tnCoppLeafProfileName:;tnStpInstPolName:;tnPoeInstPolName:
+category=switchPolicy;subCategory=leafPolicyGroup;name=sample_leaf_pol_grp;descr=;tnBfdIpv4InstPolName=;tnBfdIpv6InstPolName=;tnMonInfraPolName=;tnFcInstPolName=;tnL2NodeAuthPolName=;tnTopoctrlFwdScaleProfilePolName=;tnFcFabricPolName=;tnCoppLeafProfileName=;tnStpInstPolName=;tnPoeInstPolName=
 
 ### SPINE SWITCH POLICY GROUP ###
-category:switchPolicy;subCategory:spinePolicyGroup;name:sample_spine_pol_grp;descr:;tnCoppSpineProfileName:
+category=switchPolicy;subCategory=spinePolicyGroup;name=sample_spine_pol_grp;descr=;tnCoppSpineProfileName=
 
 ### VPC PROTECTION GROUP ###
-category:switchPolicy;subCategory:vpcProtectionGroup;name:sample_vpc_prot_grp;vpcID:1;tnVpcInstPolName:default;podId:1;nodeID01:101;nodeID02:102
+category=switchPolicy;subCategory=vpcProtectionGroup;name=sample_vpc_prot_grp;vpcID=1;tnVpcInstPolName=default;podId=1;nodeID01=101;nodeID02=102
 
 ### LEAF SWITCH PROFILE ###
 # nodeBlock: single node (e.g. 101) or range (e.g. 101-102)
-category:switch;subCategory:leaf;name:sample_leaf_profile;nameAlias:;descr:;leafName:sample_leaf_sel;policyGroup:sample_leaf_pol_grp;intProfile:sample_int_port_profile;nodeBlock:101
+category=switch;subCategory=leaf;name=sample_leaf_profile;nameAlias=;descr=;leafName=sample_leaf_sel;policyGroup=sample_leaf_pol_grp;intProfile=sample_int_port_profile;nodeBlock=101
 
 ### SPINE SWITCH PROFILE ###
-category:switch;subCategory:spine;name:sample_spine_profile;nameAlias:;descr:;spineName:sample_spine_sel;policyGroup:sample_spine_pol_grp;intProfile:;nodeBlock:201
+category=switch;subCategory=spine;name=sample_spine_profile;nameAlias=;descr=;spineName=sample_spine_sel;policyGroup=sample_spine_pol_grp;intProfile=;nodeBlock=201
 
 ################################################################
 ### INTERFACE POLICY OBJECTS
@@ -221,48 +222,48 @@ category:switch;subCategory:spine;name:sample_spine_profile;nameAlias:;descr:;sp
 # speed: 100M | 1G | 10G | 25G | 40G | 100G | inherit
 # autoNeg: on | off
 # fecMode: inherit | cl91-rs-fec | cl74-fc-fec | ieee-rs-fec | cons16-rs-fec | kp-fec | disable-fec
-category:interface;subCategory:link;name:sample_link_pol;descr:;autoNeg:on;speed:10G;fecMode:inherit;linkDebounce:100
+category=interface;subCategory=link;name=sample_link_pol;descr=;autoNeg=on;speed=10G;fecMode=inherit;linkDebounce=100
 
 ### CDP POLICY ###
 # adminSt: enabled | disabled
-category:interface;subCategory:cdp;name:sample_cdp_pol;nameAlias:;descr:;adminSt:enabled
+category=interface;subCategory=cdp;name=sample_cdp_pol;nameAlias=;descr=;adminSt=enabled
 
 ### LLDP POLICY ###
 # adminRxSt / adminTxSt: enabled | disabled
-category:interface;subCategory:lldp;name:sample_lldp_pol;nameAlias:;descr:;adminRxSt:enabled;adminTxSt:enabled
+category=interface;subCategory=lldp;name=sample_lldp_pol;nameAlias=;descr=;adminRxSt=enabled;adminTxSt=enabled
 
 ### LACP (PORT CHANNEL) POLICY ###
 # mode: off | active | passive | mac-pin | mac-pin-nicload
 # ctrl: fast-sel-hot-stdby | graceful-conv | load-defer | susp-individual — comma-separated
-category:interface;subCategory:channel;name:sample_lacp_pol;nameAlias:;descr:;mode:active;ctrl:fast-sel-hot-stdby,graceful-conv,susp-individual;minLinks:1;maxLinks:16
+category=interface;subCategory=channel;name=sample_lacp_pol;nameAlias=;descr=;mode=active;ctrl=fast-sel-hot-stdby,graceful-conv,susp-individual;minLinks=1;maxLinks=16
 
 ### MCP POLICY ###
-category:interface;subCategory:mcp;name:sample_mcp_pol;nameAlias:;descr:;adminSt:enabled
+category=interface;subCategory=mcp;name=sample_mcp_pol;nameAlias=;descr=;adminSt=enabled
 
 ### STP POLICY ###
 # ctrl: bpdu-filter | bpdu-guard — comma-separated, or leave blank
-category:interface;subCategory:stp;name:sample_stp_pol;nameAlias:;descr:;ctrl:bpdu-filter
+category=interface;subCategory=stp;name=sample_stp_pol;nameAlias=;descr=;ctrl=bpdu-filter
 
 ### INTERFACE POLICY GROUP — ACCESS (leaf) ###
-category:interface;subCategory:policyGroup;type:access;nodeType:leaf;name:sample_access_pol_grp;nameAlias:;descr:;cdp:sample_cdp_pol;lldp:sample_lldp_pol;mcp:sample_mcp_pol;link-level:sample_link_pol;aaep:sample_aaep;storm-control:
+category=interface;subCategory=policyGroup;type=access;nodeType=leaf;name=sample_access_pol_grp;nameAlias=;descr=;cdp=sample_cdp_pol;lldp=sample_lldp_pol;mcp=sample_mcp_pol;link-level=sample_link_pol;aaep=sample_aaep;storm-control=
 
 ### INTERFACE POLICY GROUP — PORT CHANNEL (leaf) ###
-category:interface;subCategory:policyGroup;type:channel;nodeType:leaf;name:sample_pc_pol_grp;nameAlias:;descr:;cdp:sample_cdp_pol;lldp:sample_lldp_pol;mcp:sample_mcp_pol;link-level:sample_link_pol;lagPolicy:sample_lacp_pol;aaep:sample_aaep;storm-control:
+category=interface;subCategory=policyGroup;type=channel;nodeType=leaf;name=sample_pc_pol_grp;nameAlias=;descr=;cdp=sample_cdp_pol;lldp=sample_lldp_pol;mcp=sample_mcp_pol;link-level=sample_link_pol;lagPolicy=sample_lacp_pol;aaep=sample_aaep;storm-control=
 
 ### INTERFACE POLICY GROUP — VPC (leaf) ###
-category:interface;subCategory:policyGroup;type:vpc;nodeType:leaf;name:sample_vpc_pol_grp;nameAlias:;descr:;cdp:sample_cdp_pol;lldp:sample_lldp_pol;mcp:sample_mcp_pol;link-level:sample_link_pol;lagPolicy:sample_lacp_pol;aaep:sample_aaep;storm-control:
+category=interface;subCategory=policyGroup;type=vpc;nodeType=leaf;name=sample_vpc_pol_grp;nameAlias=;descr=;cdp=sample_cdp_pol;lldp=sample_lldp_pol;mcp=sample_mcp_pol;link-level=sample_link_pol;lagPolicy=sample_lacp_pol;aaep=sample_aaep;storm-control=
 
 ### INTERFACE POLICY GROUP — ACCESS (spine) ###
-category:interface;subCategory:policyGroup;type:access;nodeType:spine;name:sample_spine_pol_grp_int;nameAlias:;descr:;cdp:sample_cdp_pol;link-policy:sample_link_pol;copp:;aaep:sample_aaep
+category=interface;subCategory=policyGroup;type=access;nodeType=spine;name=sample_spine_pol_grp_int;nameAlias=;descr=;cdp=sample_cdp_pol;link-policy=sample_link_pol;copp=;aaep=sample_aaep
 
 ### INTERFACE PROFILE (leaf) ###
-category:interface;subCategory:profile;nodeType:leaf;name:sample_int_port_profile;nameAlias:;descr:
+category=interface;subCategory=profile;nodeType=leaf;name=sample_int_port_profile;nameAlias=;descr=
 
 ### INTERFACE PROFILE (spine) ###
-category:interface;subCategory:profile;nodeType:spine;name:sample_spine_port_profile;nameAlias:;descr:
+category=interface;subCategory=profile;nodeType=spine;name=sample_spine_port_profile;nameAlias=;descr=
 
 ### ACCESS PORT SELECTOR ###
 # chassisPort: single port (e.g. 1) or range (e.g. 1-4)
 # channelProfile: port-channel/VPC policy group name — leave blank for single access port
 # blockName: unique name for the port block
-category:interface;subCategory:accessPortSelector;intProfile:sample_int_port_profile;name:sample_port_sel;nameAlias:;descr:;chassisCard:1;chassisPort:1;channelProfile:;policyGroup:sample_access_pol_grp;blockName:block1;blockDescr:;leafID:101
+category=interface;subCategory=accessPortSelector;intProfile=sample_int_port_profile;name=sample_port_sel;nameAlias=;descr=;chassisCard=1;chassisPort=1;channelProfile=;policyGroup=sample_access_pol_grp;blockName=block1;blockDescr=;leafID=101
