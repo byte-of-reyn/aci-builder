@@ -32,7 +32,6 @@ import cobra.model.pim
 
 from datetime import datetime
 from ping3 import ping, verbose_ping
-from aci_model import *
 import argparse
 import getpass
 import requests
