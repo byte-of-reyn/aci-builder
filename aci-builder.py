@@ -82,7 +82,6 @@ profiles['l3OutProtocol'] = []
 profiles['nodeProfile'] = []
 profiles['intProfile'] = []
 profiles['intProtocol'] = []
-profiles['routeMap'] = []
 profiles['staticRoute'] = []
 profiles['networks'] = []
 profiles['subnets'] = []
@@ -103,7 +102,6 @@ profiles['switch'] = []
 profiles['switchPolicy'] = []
 profiles['switchProfile'] = []
 profiles['interface'] = []
-profiles['global'] = []
 
 #removes whitespace and newlines surrounding string
 def clean_input(string):
@@ -320,10 +318,12 @@ def main():
                         
                         #extract attributes for the current line and sort in dictionaries
                         for attribute in temp_list:
-                            tup = attribute.split(":")
+                            tup = attribute.split(":", 1)
+                            if len(tup) < 2:
+                                continue
                             if tup[0] == 'category':
                                 category = tup[1].rstrip().replace("\n", '')
-                            if tup[0] == 'subCategory':
+                            elif tup[0] == 'subCategory':
                                 subCategory = tup[1].rstrip().replace("\n", '')
                             else:
                                 tempDict[tup[0]] = tup[1].rstrip().replace("\n", '')
@@ -343,67 +343,64 @@ def main():
                         if category == 'global':
                             if subCategory == 'physicalDomain':
                                 profiles['domain'].append(tempDict)
-                            if subCategory == 'routedDomain':
+                            elif subCategory == 'routedDomain':
                                 profiles['domain'].append(tempDict)
-                        if category == 'network':
+                            elif subCategory == 'vlanPool':
+                                profiles['vlanPool'].append(tempDict)
+                            elif subCategory == 'vlanPoolRange':
+                                profiles['vlanPoolRange'].append(tempDict)
+                        elif category == 'network':
                             if subCategory == 'epg':
                                 profiles['epg'].append(tempDict)
-                            if subCategory == 'bridge-domain':
+                            elif subCategory == 'bridge-domain':
                                 profiles['bridge-domain'].append(tempDict)
-                            if subCategory == 'dhcpRelayLabel':
+                            elif subCategory == 'dhcpRelayLabel':
                                 profiles['dhcpRelayLabel'].append(tempDict)
-                            if subCategory == 'ndProxySubnet':
+                            elif subCategory == 'ndProxySubnet':
                                 profiles['ndProxySubnet'].append(tempDict)
-                            if subCategory == 'subnet':
+                            elif subCategory == 'subnet':
                                 profiles['subnet'].append(tempDict)
-                            if subCategory == 'vrf':           
+                            elif subCategory == 'vrf':
                                 profiles['vrf'].append(tempDict)
-                            if subCategory == 'protocolPolicy':
+                            elif subCategory == 'protocolPolicy':
                                 profiles['protocolPolicy'].append(tempDict)
-                            if subCategory == 'l3out':
+                            elif subCategory == 'l3out':
                                 profiles['l3out'].append(tempDict)
-                            if subCategory == 'nodeProfile':
+                            elif subCategory == 'nodeProfile':
                                 profiles['nodeProfile'].append(tempDict)
-                            if subCategory == 'l3OutProtocol':
+                            elif subCategory == 'l3OutProtocol':
                                 profiles['l3OutProtocol'].append(tempDict)
-                            if subCategory == 'intProfile':
+                            elif subCategory == 'intProfile':
                                 profiles['intProfile'].append(tempDict)
-                            if subCategory == 'intProtocol':
+                            elif subCategory == 'intProtocol':
                                 profiles['intProtocol'].append(tempDict)
-                            if subCategory == 'bridgeDomainLink':
+                            elif subCategory == 'bridgeDomainLink':
                                 profiles['bridgeDomainLink'].append(tempDict)
-                            if subCategory == 'routeMap':
-                                profiles['routeMap'].append(tempDict)
-                            if subCategory == 'staticRoute':
+                            elif subCategory == 'staticRoute':
                                 profiles['staticRoute'].append(tempDict)
-                            if subCategory == 'networks':
+                            elif subCategory == 'networks':
                                 profiles['networks'].append(tempDict)
-                            if subCategory == 'subnets':
+                            elif subCategory == 'subnets':
                                 profiles['subnets'].append(tempDict)
-                            if subCategory == 'l3OutRouteMap':
+                            elif subCategory == 'l3OutRouteMap':
                                 profiles['l3OutRouteMap'].append(tempDict)
-                            if subCategory == 'routeMapMatch':
+                            elif subCategory == 'routeMapMatch':
                                 profiles['routeMapMatch'].append(tempDict)
-                            if subCategory == 'routeMapRules':
+                            elif subCategory == 'routeMapRules':
                                 profiles['routeMapRules'].append(tempDict)
-                            if subCategory == 'BGPPeer':
+                            elif subCategory == 'BGPPeer':
                                 profiles['BGPPeer'].append(tempDict)
-                            if subCategory == 'staticPath':
+                            elif subCategory == 'staticPath':
                                 profiles['staticPath'].append(tempDict)
-                        if category == 'security':
+                        elif category == 'security':
                             if subCategory == 'contract':
                                 profiles['security'].append(tempDict)
-                            if subCategory == 'subject':
+                            elif subCategory == 'subject':
                                 profiles['security'].append(tempDict)
-                            if subCategory == 'filter':
+                            elif subCategory == 'filter':
                                 profiles['security'].append(tempDict)
-                            if subCategory == 'filterEntry':
-                                profiles['security'].append(tempDict)                
-                        if category == 'global':
-                            if subCategory == 'vlanPool':
-                                profiles['vlanPool'].append(tempDict)
-                            if subCategory == 'vlanPoolRange':
-                                profiles['vlanPoolRange'].append(tempDict)
+                            elif subCategory == 'filterEntry':
+                                profiles['security'].append(tempDict)
                         if category == 'switch':
                             if subCategory == 'leaf':
                                 profiles['switchProfile'].append(tempDict)
@@ -474,16 +471,18 @@ def main():
         temp_app_profile = {}
         temp_app_profile_tenant = {}
         temp_epg = {}
-        temp_dhcpOption = {}
         tempVlanPool = {}
         tempAAEP = {}
         tempDomain = {}
         
         #Security related object storage
         tempContract = {}
+        temp_contract_tenant = {}
         tempFilter = {}
+        temp_filter_tenant = {}
         tempSubject = {}
         tempLeafProfile = {}
+        tempIntProfile = {}
         
         #L3Out related object storage
         tempL3Out = {}
@@ -591,22 +590,38 @@ def main():
                         temp_tenant[profile['tenant']] = fvTenant
                     vzBrCP = cobra.model.vz.BrCP(fvTenant, descr=profile['descr'], name=profile['name'], nameAlias=profile['nameAlias'], prio=profile['prio'], targetDscp=profile['targetDscp'], scope=profile['scope'])
                     tempContract[profile['name']] = vzBrCP
+                    temp_contract_tenant[profile['name']] = profile['tenant']
 
             for profile in profiles['security']:
                 if profile['subCategory'] == 'subject':
-                    #if not available in temporary storage create new object and add
                     if profile['contract'] in tempContract:
                         vzBrCP = tempContract[profile['contract']]
                     else:
+                        contract_tenant = temp_contract_tenant.get(profile['contract'], '')
+                        if contract_tenant in temp_tenant:
+                            fvTenant = temp_tenant[contract_tenant]
+                        else:
+                            fvTenant = cobra.model.fv.Tenant(polUni, name=contract_tenant)
+                            temp_tenant[contract_tenant] = fvTenant
                         vzBrCP = cobra.model.vz.BrCP(fvTenant, name=profile['contract'])
                         tempContract[profile['contract']] = vzBrCP
                     vzSubj = cobra.model.vz.Subj(vzBrCP, consMatchT=profile['consMatchT'], descr=profile['descr'], name=profile['name'], nameAlias=profile['nameAlias'], prio=profile['prio'], provMatchT=profile['provMatchT'], revFltPorts=profile['revFltPorts'], targetDscp=profile['targetDscp'])
                     tempSubject[profile['name']] = vzSubj
 
             for profile in profiles['security']:
-               if profile['subCategory'] == 'filter':
+                if profile['subCategory'] == 'filter':
+                    tenant_name = profile.get('tenant', '')
+                    if not tenant_name:
+                        print('WARNING: filter "{}" has no tenant field — skipping.'.format(profile['name']))
+                        continue
+                    if tenant_name in temp_tenant:
+                        fvTenant = temp_tenant[tenant_name]
+                    else:
+                        fvTenant = cobra.model.fv.Tenant(polUni, name=tenant_name)
+                        temp_tenant[tenant_name] = fvTenant
                     vzFilter = cobra.model.vz.Filter(fvTenant, descr=profile['descr'], name=profile['name'], nameAlias=profile['nameAlias'])
                     tempFilter[profile['name']] = vzFilter
+                    temp_filter_tenant[profile['name']] = profile['tenant']
                     if profile['subject']:
                         if profile['subject'] in tempSubject:
                             vzSubj = tempSubject[profile['subject']]
@@ -615,12 +630,17 @@ def main():
                             tempSubject[profile['subject']] = vzSubj
                         vzRsSubjFiltAtt = cobra.model.vz.RsSubjFiltAtt(vzSubj, tnVzFilterName=profile['name'])
 
-            for profile in profiles['security']:        
+            for profile in profiles['security']:
                 if profile['subCategory'] == 'filterEntry':
-                    #if not available in temporary storage create new object and add
                     if profile['filter'] in tempFilter:
                         vzFilter = tempFilter[profile['filter']]
                     else:
+                        filter_tenant = temp_filter_tenant.get(profile['filter'], '')
+                        if filter_tenant in temp_tenant:
+                            fvTenant = temp_tenant[filter_tenant]
+                        else:
+                            fvTenant = cobra.model.fv.Tenant(polUni, name=filter_tenant)
+                            temp_tenant[filter_tenant] = fvTenant
                         vzFilter = cobra.model.vz.Filter(fvTenant, name=profile['filter'])
                         tempFilter[profile['filter']] = vzFilter
                     vzEntry = cobra.model.vz.Entry(vzFilter, applyToFrag=profile['applyToFrag'], arpOpc=profile['arpOpc'], dFromPort=profile['dFromPort'], dToPort=profile['dToPort'], 
@@ -649,9 +669,12 @@ def main():
                 else:
                     fvAp = cobra.model.fv.Ap(fvTenant, name=profile['application-profile'])
                     temp_app_profile[profile['application-profile']] = fvAp
-                fvAEPg = cobra.model.fv.AEPg(fvAp, descr=profile['descr'], 
-                    fwdCtrl=profile['fwdCtrl'], isAttrBasedEPg=profile['isAttrBasedEPg'], matchT=profile['matchT'], name=profile['name'], 
-                    nameAlias=profile['nameAlias'], pcEnfPref=profile['pcEnfPref'], prefGrMemb=profile['prefGrMemb'], prio='unspecified')
+                fvAEPg = cobra.model.fv.AEPg(fvAp, descr=profile['descr'],
+                    floodOnEncap=profile.get('floodOnEncap', 'disabled'),
+                    fwdCtrl=profile['fwdCtrl'], hasMcastSource=profile.get('hasMcastSource', 'no'),
+                    isAttrBasedEPg=profile['isAttrBasedEPg'], matchT=profile['matchT'], name=profile['name'],
+                    nameAlias=profile['nameAlias'], pcEnfPref=profile['pcEnfPref'], prefGrMemb=profile['prefGrMemb'],
+                    prio='unspecified', shutdown=profile.get('shutdown', 'no'))
                 if profile.get('domain'):
                     fvRsDomAtt = cobra.model.fv.RsDomAtt(fvAEPg, tDn='uni/phys-'+profile['domain'])
                 if profile.get('l3Domain'):
@@ -683,8 +706,9 @@ def main():
                 else:
                     fvTenant = cobra.model.fv.Tenant(polUni, profile['tenant'])
                     temp_tenant[profile['tenant']] = fvTenant
-                fvCtx = cobra.model.fv.Ctx(fvTenant, bdEnforcedEnable=profile['bdEnforcedEnable'], 
-                    descr=profile['descr'], knwMcastAct=profile['knwMcastAct'], name=profile['name'], 
+                fvCtx = cobra.model.fv.Ctx(fvTenant, bdEnforcedEnable=profile['bdEnforcedEnable'],
+                    descr=profile['descr'], ipDataPlaneLearning=profile.get('ipDataPlaneLearning', 'enabled'),
+                    knwMcastAct=profile['knwMcastAct'], name=profile['name'],
                     nameAlias=profile['nameAlias'], pcEnfDir=profile['pcEnfDir'], pcEnfPref=profile['pcEnfPref'])
             
             #load bridge-domains
@@ -705,19 +729,20 @@ def main():
                 if profile['mac']:
                     macAddress = profile['mac'].replace('-', ':')
                 fvBD = cobra.model.fv.BD(fvTenant, OptimizeWanBandwidth=profile['OptimizeWanBandwidth'], arpFlood=profile['arpFlood'], descr=profile['descr'], mac=macAddress,
-                    epClear=profile['epClear'], epMoveDetectMode=profile['epMoveDetectMode'], intersiteBumTrafficAllow=profile['intersiteBumTrafficAllow'], 
-                    intersiteL2Stretch=profile['intersiteL2Stretch'], ipLearning=profile['ipLearning'], limitIpLearnToSubnets=profile['limitIpLearnToSubnets'], llAddr=profile['llAddr'], 
-                    mcastAllow=profile['mcastAllow'], multiDstPktAct=profile['multiDstPktAct'], name=profile['name'], 
-                    nameAlias=profile['nameAlias'], type=profile['type'], 
-                    unicastRoute=profile['unicastRoute'], unkMacUcastAct=profile['unkMacUcastAct'], unkMcastAct=profile['unkMcastAct'], 
-                    vmac=profile['vmac'])
+                    epClear=profile['epClear'], epMoveDetectMode=profile['epMoveDetectMode'], hostBasedRouting=profile.get('hostBasedRouting', 'no'),
+                    intersiteBumTrafficAllow=profile['intersiteBumTrafficAllow'],
+                    intersiteL2Stretch=profile['intersiteL2Stretch'], ipLearning=profile['ipLearning'], limitIpLearnToSubnets=profile['limitIpLearnToSubnets'], llAddr=profile['llAddr'],
+                    mcastAllow=profile['mcastAllow'], multiDstPktAct=profile['multiDstPktAct'], name=profile['name'],
+                    nameAlias=profile['nameAlias'], type=profile['type'],
+                    unicastRoute=profile['unicastRoute'], unkMacUcastAct=profile['unkMacUcastAct'], unkMcastAct=profile['unkMcastAct'],
+                    v6unkMcastAct=profile.get('v6unkMcastAct', 'flood'), vmac=profile['vmac'])
                 temp_bridge_domain[profile['name']] = fvBD
                 #link bridge-domain to EPG
                 if profile['epg']:
                     if profile['epg'] in temp_epg:
                         fvAEPg = temp_epg[profile['epg']]
                     else:
-                        fvAEPg = fvAEPg = cobra.model.fv.AEPg(fvAp, name=profile['epg'])
+                        fvAEPg = cobra.model.fv.AEPg(fvAp, name=profile['epg'])
                         temp_epg[profile['epg']] = fvAEPg
                     fvRsBd = cobra.model.fv.RsBd(fvAEPg, tnFvBDName=profile['name'])
                 #link bridge-domain to VRF
@@ -879,6 +904,8 @@ def main():
                             ipRouteP = cobra.model.ip.RouteP(l3extRsNodeL3OutAtt, ip=profile['ip'])
                             ipNexthopP = cobra.model.ip.NexthopP(ipRouteP, nhAddr=profile['nhAddr'])
                             break
+                if not l3extRsNodeL3OutAtt:
+                    print('WARNING: No node profile found for static route {} on pod-{}/node-{} — skipping.'.format(profile['ip'], profile['podID'], profile['nodeID']))
 
             #attach network/s to l3out
             for profile in profiles['networks']:
@@ -926,7 +953,7 @@ def main():
                     l3extOut = cobra.model.l3ext.Out(fvTenant, name=profile['L3Out'])
                     tempL3Out[profile['L3Out']] = l3extOut
                 rtctrlProfile = cobra.model.rtctrl.Profile(l3extOut, descr='', name='default-'+profile['direction'])
-                rtctrlCtxP = cobra.model.rtctrl.CtxP(rtctrlProfile, action='permit', descr='', name=profile['contextName'], nameAlias='', order='0')
+                rtctrlCtxP = cobra.model.rtctrl.CtxP(rtctrlProfile, action='permit', descr='', name=profile['contextName'], nameAlias='', order=profile.get('order', '0'))
                 if profile['contextName'] not in tempRouteMapContext.keys():
                     tempRouteMapContext[profile['contextName']] = []
                 tempRouteMapContext[profile['contextName']].append((profile['L3Out'], rtctrlCtxP))
@@ -958,43 +985,37 @@ def main():
                 if profile['nodeProfile'] in tempNodeProfile:
                     l3extLNodeP = tempNodeProfile[profile['nodeProfile']]
                 else:
-                    l3extLNodeP = l3extLNodeP = cobra.model.l3ext.LNodeP(l3extOut, name=profile['nodeProfile'])
+                    l3extLNodeP = cobra.model.l3ext.LNodeP(l3extOut, name=profile['nodeProfile'])
                     tempNodeProfile[profile['nodeProfile']] = l3extLNodeP
                 intType = profile['ifInstT']
 
-                #L3Out point-to-point dot1q tagged routed sub-interface
                 if intType == 'sub-interface':
-                    #update MAC addres format
-                    macAddress = '00:22:BD:F8:19:FF' #default MAC address load
-                    if profile['mac']:
-                        macAddress = profile['mac'].replace('-', ':') 
+                    macAddress = profile['mac'].replace('-', ':') if profile['mac'] else '00:22:BD:F8:19:FF'
                     l3extLIfP = cobra.model.l3ext.LIfP(l3extLNodeP, descr=profile['descr'], name=profile['name'], nameAlias=profile['nameAlias'])
                     l3extRsPathL3OutAtt = cobra.model.l3ext.RsPathL3OutAtt(l3extLIfP, addr=profile['addr'], mac=macAddress, descr='', encap='vlan-'+profile['encapVlan'], ifInstT=intType, llAddr=profile['llAddr'], mtu=profile['mtu'], tDn='topology/pod-'+profile['podID']+'/paths-'+profile['nodeID']+'/pathep-[eth'+profile['chassisCard']+'/'+profile['chassisPort']+']', targetDscp=profile['targetDscp'])
                     l3extRsNdIfPol = cobra.model.l3ext.RsNdIfPol(l3extLIfP, tnNdIfPolName=profile['tnNdIfPolName'])
                     l3extRsIngressQosDppPol = cobra.model.l3ext.RsIngressQosDppPol(l3extLIfP, tnQosDppPolName=profile['tnQosDppPolName'])
                     l3extRsEgressQosDppPol = cobra.model.l3ext.RsEgressQosDppPol(l3extLIfP, tnQosDppPolName=profile['tnQosDppPolName'])
-
-                #L3Out point-to-point routed interface
-                if intType == 'l3-port':
+                elif intType == 'l3-port':
                     l3extLIfP = cobra.model.l3ext.LIfP(l3extLNodeP, descr=profile['descr'], name=profile['name'], nameAlias=profile['nameAlias'])
                     l3extRsPathL3OutAtt = cobra.model.l3ext.RsPathL3OutAtt(l3extLIfP, addr=profile['addr'], descr='', encap='unknown', ifInstT=intType, llAddr=profile['llAddr'], mtu=profile['mtu'], tDn='topology/pod-'+profile['podID']+'/paths-'+profile['nodeID']+'/pathep-[eth'+profile['chassisCard']+'/'+profile['chassisPort']+']', targetDscp=profile['targetDscp'])
                     l3extRsNdIfPol = cobra.model.l3ext.RsNdIfPol(l3extLIfP, tnNdIfPolName=profile['tnNdIfPolName'])
                     l3extRsIngressQosDppPol = cobra.model.l3ext.RsIngressQosDppPol(l3extLIfP, tnQosDppPolName=profile['tnQosDppPolName'])
                     l3extRsEgressQosDppPol = cobra.model.l3ext.RsEgressQosDppPol(l3extLIfP, tnQosDppPolName=profile['tnQosDppPolName'])
-
-                #L3Out SVI interface
-                if intType ==  'ext-svi':
-                    #update MAC address format
-                    macAddress = '00:22:BD:F8:19:FF' #default MAC address
-                    if profile['mac']:
-                        macAddress = profile['mac'].replace('-', ':')
+                elif intType == 'ext-svi':
+                    macAddress = profile['mac'].replace('-', ':') if profile['mac'] else '00:22:BD:F8:19:FF'
                     l3extLIfP = cobra.model.l3ext.LIfP(l3extLNodeP, descr=profile['descr'], name=profile['name'], nameAlias=profile['nameAlias'])
                     l3extRsPathL3OutAtt = cobra.model.l3ext.RsPathL3OutAtt(l3extLIfP, addr=profile['addr'], descr='', encap='vlan-'+profile['encapVlan'], ifInstT=intType, llAddr=profile['llAddr'], mac=macAddress, mode=profile['mode'], mtu=profile['mtu'], tDn='topology/pod-'+profile['podID']+'/paths-'+profile['nodeID']+'/pathep-['+profile['accessProfile']+']', targetDscp=profile['targetDscp'])
                     l3extRsNdIfPol = cobra.model.l3ext.RsNdIfPol(l3extLIfP, tnNdIfPolName=profile['tnNdIfPolName'])
                     l3extRsIngressQosDppPol = cobra.model.l3ext.RsIngressQosDppPol(l3extLIfP, tnQosDppPolName=profile['tnQosDppPolName'])
                     l3extRsEgressQosDppPol = cobra.model.l3ext.RsEgressQosDppPol(l3extLIfP, tnQosDppPolName=profile['tnQosDppPolName'])
+                else:
+                    print('WARNING: Unknown ifInstT "{}" for interface profile "{}" — skipping.'.format(intType, profile['name']))
+                    continue
 
-                #create and associate relevant profiles and attach to the current l3extLIfP
+                tempIntProfile[profile['name']] = l3extLIfP
+
+                #attach protocol and policy profiles to the interface profile
                 if profile['bfdProfile']:
                         bfdIfP = cobra.model.bfd.IfP(l3extLIfP)
                         bfdRsIfPol = cobra.model.bfd.RsIfPol(bfdIfP, tnBfdIfPolName=profile['bfdProfile'])
@@ -1022,18 +1043,27 @@ def main():
                 if profile['nodeProfile'] in tempNodeProfile:
                     l3extLNodeP = tempNodeProfile[profile['nodeProfile']]
                 else:
-                    l3extLNodeP = l3extLNodeP = cobra.model.l3ext.LNodeP(l3extOut, name=profile['nodeProfile'])
+                    l3extLNodeP = cobra.model.l3ext.LNodeP(l3extOut, name=profile['nodeProfile'])
                     tempNodeProfile[profile['nodeProfile']] = l3extLNodeP
-                if profile['protocol'].lower() == 'eigrp' or profile['protocol'].lower() == 'ospf':
-                    l3extLIfP = cobra.model.l3ext.LIfP(l3extLNodeP, profile['protocolProfile'])
+                if profile['protocolProfile'] in tempIntProfile:
+                    l3extLIfP = tempIntProfile[profile['protocolProfile']]
+                else:
+                    l3extLIfP = cobra.model.l3ext.LIfP(l3extLNodeP, name=profile['protocolProfile'])
+                    tempIntProfile[profile['protocolProfile']] = l3extLIfP
+                if profile['protocol'].lower() == 'eigrp':
+                    eigrpIfP = cobra.model.eigrp.IfP(l3extLIfP)
+                    eigrpRsIfPol = cobra.model.eigrp.RsIfPol(eigrpIfP, tnEigrpIfPolName=profile['protocolProfile'])
+                elif profile['protocol'].lower() == 'ospf':
+                    ospfIfP = cobra.model.ospf.IfP(l3extLIfP)
+                    ospfRsIfPol = cobra.model.ospf.RsIfPol(ospfIfP, tnOspfIfPolName=profile['protocolProfile'])
 
             #BGP peer profile link to node profile
             for profile in profiles['BGPPeer']:
                 if profile['nodeProfile'] in tempNodeProfile:
                     l3extLNodeP = tempNodeProfile[profile['nodeProfile']]
                 else:
-                    l3extLNodeP = l3extLNodeP = cobra.model.l3ext.LNodeP(l3extOut, name=profile['nodeProfile'])
-                    tempNodeProfile[profile['nodeProfile']] = l3extLNodeP      
+                    l3extLNodeP = cobra.model.l3ext.LNodeP(l3extOut, name=profile['nodeProfile'])
+                    tempNodeProfile[profile['nodeProfile']] = l3extLNodeP
                 bgpPeerP = cobra.model.bgp.PeerP(l3extLNodeP, addr=profile['localAddr'], allowedSelfAsCnt=profile['allowedSelfAsCnt'], ctrl=profile['ctrl'], peerCtrl=profile['peerCtrl'], privateASctrl='', ttl=profile['multihopValue'], weight=profile['weight'])
                 bgpRsPeerPfxPol = cobra.model.bgp.RsPeerPfxPol(bgpPeerP, tnBgpPeerPfxPolName=profile['prefixPolicy'])
                 bgpLocalAsnP = cobra.model.bgp.LocalAsnP(bgpPeerP, localAsn=profile['localASN'])
