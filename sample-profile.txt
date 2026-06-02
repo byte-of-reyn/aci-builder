@@ -90,6 +90,22 @@ category=network;subCategory=vrf;tenant=SAMPLE_TENANT;name=sample_vrf;nameAlias=
 # prefGrMemb: include | exclude
 category=network;subCategory=epg;application-profile=sample_app;tenant=SAMPLE_TENANT;name=sample_epg;nameAlias=;descr=;domain=sample_phyDom;l3Domain=;vmmDomain=;contractConsume=sample_con;contractProvide=sample_con;floodOnEncap=disabled;fwdCtrl=proxy-arp;hasMcastSource=no;isAttrBasedEPg=no;matchT=AtleastOne;pcEnfPref=enforced;prefGrMemb=exclude;shutdown=no
 
+### ESG (ENDPOINT SECURITY GROUP) ###
+# pcEnfPref: unenforced | enforced
+# prefGrMemb: include | exclude
+# matchT: AtleastOne | All | None | AtmostOne
+# prio: unspecified | level1–level6
+# vrf: scopes the ESG to a VRF (required for contract enforcement)
+# contractConsume / contractProvide: leave blank if none
+# NOTE: EPGs assigned to this ESG via epgToEsg must NOT have their own contracts —
+#       ACI enforces that contract security moves entirely to the ESG.
+category=network;subCategory=esg;application-profile=sample_app;tenant=SAMPLE_TENANT;name=sample_esg;nameAlias=;descr=;pcEnfPref=unenforced;prefGrMemb=exclude;matchT=AtleastOne;prio=unspecified;vrf=sample_vrf;contractConsume=;contractProvide=
+
+### EPG TO ESG ASSIGNMENT ###
+# Assign an EPG (without its own contracts) into an ESG. The EPG's security policy
+# is then governed by the ESG.
+category=network;subCategory=epgToEsg;tenant=SAMPLE_TENANT;application-profile=sample_app;esg=sample_esg;epg=sample_epg;name=sample_epg_sel
+
 ### BRIDGE DOMAIN ###
 # unkMacUcastAct: proxy | flood
 # unkMcastAct: flood | opt-flood

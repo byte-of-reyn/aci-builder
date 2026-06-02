@@ -210,6 +210,168 @@ def buildfile_check_clean(line, line_count):
 
     return line_check
 
+def check_cross_refs(profiles):
+    """Check internal references across parsed profiles and return warning strings."""
+    warnings = []
+
+    tenant_names      = {p['name'] for p in profiles['tenant']}
+    ap_names          = {p['name'] for p in profiles['application-profile']}
+    vlan_pool_names   = {p['name'] for p in profiles['vlanPool']}
+    vrf_names         = {p['name'] for p in profiles['vrf']}
+    epg_names         = {p['name'] for p in profiles['epg']}
+    bd_names          = {p['name'] for p in profiles['bridge-domain']}
+    contract_names    = {p['name'] for p in profiles['security'] if p['subCategory'] == 'contract'}
+    subject_names     = {p['name'] for p in profiles['security'] if p['subCategory'] == 'subject'}
+    filter_names      = {p['name'] for p in profiles['security'] if p['subCategory'] == 'filter'}
+    domain_names      = {p['name'] for p in profiles['domain']}
+    l3out_names       = {p['name'] for p in profiles['l3out']}
+    node_profile_names = {p['name'] for p in profiles['nodeProfile']}
+    network_names     = {p['name'] for p in profiles['networks']}
+    route_map_contexts = {p['contextName'] for p in profiles['l3OutRouteMap']}
+    route_map_subjects = {p['name'] for p in profiles['routeMapMatch']}
+    dhcp_opt_pol_names = {p['name'] for p in profiles['dhcpOptionPolicy']}
+    esg_names         = {p['name'] for p in profiles['esg']}
+
+    def warn(msg, line=None):
+        prefix = 'line {}: '.format(line) if line else ''
+        warnings.append('WARNING: {}Cross-ref: {}'.format(prefix, msg))
+
+    for p in profiles['vlanPoolRange']:
+        if p['vlanPool'] not in vlan_pool_names:
+            warn("vlanPoolRange '{}' references unknown vlanPool '{}'".format(p['name'], p['vlanPool']), p.get('_line'))
+
+    for p in profiles['domain']:
+        if p.get('poolName') and p['poolName'] not in vlan_pool_names:
+            warn("domain '{}' references unknown vlanPool '{}'".format(p['name'], p['poolName']), p.get('_line'))
+
+    for p in profiles['application-profile']:
+        if p.get('tenant') and p['tenant'] not in tenant_names:
+            warn("application-profile '{}' references unknown tenant '{}'".format(p['name'], p['tenant']), p.get('_line'))
+
+    for p in profiles['epg']:
+        if p.get('application-profile') and p['application-profile'] not in ap_names:
+            warn("epg '{}' references unknown application-profile '{}'".format(p['name'], p['application-profile']), p.get('_line'))
+        if p.get('contractConsume') and p['contractConsume'] not in contract_names:
+            warn("epg '{}' consumes unknown contract '{}'".format(p['name'], p['contractConsume']), p.get('_line'))
+        if p.get('contractProvide') and p['contractProvide'] not in contract_names:
+            warn("epg '{}' provides unknown contract '{}'".format(p['name'], p['contractProvide']), p.get('_line'))
+        if p.get('domain') and p['domain'] not in domain_names:
+            warn("epg '{}' references unknown domain '{}'".format(p['name'], p['domain']), p.get('_line'))
+
+    for p in profiles['esg']:
+        if p.get('application-profile') and p['application-profile'] not in ap_names:
+            warn("esg '{}' references unknown application-profile '{}'".format(p['name'], p['application-profile']), p.get('_line'))
+        if p.get('vrf') and p['vrf'] not in vrf_names:
+            warn("esg '{}' references unknown vrf '{}'".format(p['name'], p['vrf']), p.get('_line'))
+        if p.get('contractConsume') and p['contractConsume'] not in contract_names:
+            warn("esg '{}' consumes unknown contract '{}'".format(p['name'], p['contractConsume']), p.get('_line'))
+        if p.get('contractProvide') and p['contractProvide'] not in contract_names:
+            warn("esg '{}' provides unknown contract '{}'".format(p['name'], p['contractProvide']), p.get('_line'))
+
+    for p in profiles['epgToEsg']:
+        if p.get('esg') and p['esg'] not in esg_names:
+            warn("epgToEsg '{}' references unknown esg '{}'".format(p.get('name', ''), p['esg']), p.get('_line'))
+        if p.get('epg') and p['epg'] not in epg_names:
+            warn("epgToEsg '{}' references unknown epg '{}' (EPGs assigned to an ESG must not have their own contracts)".format(p.get('name', ''), p['epg']), p.get('_line'))
+
+    for p in profiles['bridge-domain']:
+        if p.get('vrf') and p['vrf'] not in vrf_names:
+            warn("bridge-domain '{}' references unknown vrf '{}'".format(p['name'], p['vrf']), p.get('_line'))
+        if p.get('epg') and p['epg'] not in epg_names:
+            warn("bridge-domain '{}' references unknown epg '{}'".format(p['name'], p['epg']), p.get('_line'))
+
+    for p in profiles['subnet']:
+        if p.get('bridge-domain') and p['bridge-domain'] not in bd_names:
+            warn("subnet '{}' references unknown bridge-domain '{}'".format(p.get('ip', ''), p['bridge-domain']), p.get('_line'))
+
+    for p in profiles['ndProxySubnet']:
+        if p.get('bridge-domain') and p['bridge-domain'] not in bd_names:
+            warn("ndProxySubnet references unknown bridge-domain '{}'".format(p['bridge-domain']), p.get('_line'))
+
+    for p in profiles['dhcpRelayLabel']:
+        if p.get('bridge-domain') and p['bridge-domain'] not in bd_names:
+            warn("dhcpRelayLabel '{}' references unknown bridge-domain '{}'".format(p['name'], p['bridge-domain']), p.get('_line'))
+
+    for p in profiles['dhcpOption']:
+        if p.get('dhcpOptionPolicy') and p['dhcpOptionPolicy'] not in dhcp_opt_pol_names:
+            warn("dhcpOption '{}' references unknown dhcpOptionPolicy '{}'".format(p['name'], p['dhcpOptionPolicy']), p.get('_line'))
+
+    for p in profiles['bridgeDomainLink']:
+        if p.get('bridge-domain') and p['bridge-domain'] not in bd_names:
+            warn("bridgeDomainLink references unknown bridge-domain '{}'".format(p['bridge-domain']), p.get('_line'))
+
+    for p in profiles['l3out']:
+        if p.get('vrf') and p['vrf'] not in vrf_names:
+            warn("l3out '{}' references unknown vrf '{}'".format(p['name'], p['vrf']), p.get('_line'))
+        if p.get('extDomain') and p['extDomain'] not in domain_names:
+            warn("l3out '{}' references unknown domain '{}'".format(p['name'], p['extDomain']), p.get('_line'))
+
+    for p in profiles['nodeProfile']:
+        if p.get('L3Out') and p['L3Out'] not in l3out_names:
+            warn("nodeProfile '{}' references unknown l3out '{}'".format(p['name'], p['L3Out']), p.get('_line'))
+
+    for p in profiles['intProfile']:
+        if p.get('nodeProfile') and p['nodeProfile'] not in node_profile_names:
+            warn("intProfile '{}' references unknown nodeProfile '{}'".format(p['name'], p['nodeProfile']), p.get('_line'))
+
+    for p in profiles['l3OutProtocol']:
+        if p.get('L3Out') and p['L3Out'] not in l3out_names:
+            warn("l3OutProtocol references unknown l3out '{}'".format(p['L3Out']), p.get('_line'))
+
+    for p in profiles['staticRoute']:
+        if p.get('nodeProfile') and p['nodeProfile'] not in node_profile_names:
+            warn("staticRoute '{}' references unknown nodeProfile '{}'".format(p.get('ip', ''), p['nodeProfile']), p.get('_line'))
+
+    for p in profiles['networks']:
+        if p.get('L3Out') and p['L3Out'] not in l3out_names:
+            warn("network '{}' references unknown l3out '{}'".format(p['name'], p['L3Out']), p.get('_line'))
+
+    for p in profiles['subnets']:
+        if p.get('network') and p['network'] not in network_names:
+            warn("subnet '{}' references unknown network (L3Out EPG) '{}'".format(p.get('ip', ''), p['network']), p.get('_line'))
+
+    for p in profiles['l3OutRouteMap']:
+        if p.get('L3Out') and p['L3Out'] not in l3out_names:
+            warn("l3OutRouteMap references unknown l3out '{}'".format(p['L3Out']), p.get('_line'))
+
+    for p in profiles['routeMapRules']:
+        if p.get('L3Out') and p['L3Out'] not in l3out_names:
+            warn("routeMapRules references unknown l3out '{}'".format(p['L3Out']), p.get('_line'))
+        if p.get('context') and p['context'] not in route_map_contexts:
+            warn("routeMapRules references unknown route-map context '{}'".format(p['context']), p.get('_line'))
+        if p.get('subjectName') and p['subjectName'] not in route_map_subjects:
+            warn("routeMapRules references unknown match rule '{}'".format(p['subjectName']), p.get('_line'))
+
+    for p in profiles['security']:
+        if p['subCategory'] == 'subject':
+            if p.get('contract') and p['contract'] not in contract_names:
+                warn("subject '{}' references unknown contract '{}'".format(p['name'], p['contract']), p.get('_line'))
+        elif p['subCategory'] == 'filter':
+            if p.get('subject') and p['subject'] not in subject_names:
+                warn("filter '{}' references unknown subject '{}'".format(p['name'], p['subject']), p.get('_line'))
+        elif p['subCategory'] == 'filterEntry':
+            if p.get('filter') and p['filter'] not in filter_names:
+                warn("filterEntry '{}' references unknown filter '{}'".format(p['name'], p['filter']), p.get('_line'))
+
+    for p in profiles['staticPath']:
+        if p.get('epg') and p['epg'] not in epg_names:
+            warn("staticPath references unknown epg '{}'".format(p['epg']), p.get('_line'))
+
+    return warnings
+
+
+def _build_name_line_map(profiles):
+    """Maps object names to source line numbers for commit error attribution."""
+    m = {}
+    for records in profiles.values():
+        for rec in records:
+            name = rec.get('name') or rec.get('ip', '')
+            line = rec.get('_line')
+            if name and line:
+                m.setdefault(name, []).append(line)
+    return m
+
+
 def main():
     #start application timer
     start=datetime.now()
@@ -296,175 +458,164 @@ def main():
             print('STATUS: Parsing buildfile.')
         
         for line in file:
-            #only run through build file and perform base checks
-            if validate_build:
-                is_comment = re.match(comment, line)
-                is_newline = re.match(newline, line)
-                #skip if newline or comment is present
-                if is_comment or is_newline:
-                    line_count += 1
-                    continue
-                else:
-                    line_check = buildfile_check_clean(line, line_count)
-                    if not line_check[RESULT]:
-                        build_errors = True
+            is_comment = re.match(comment, line)
+            is_newline = re.match(newline, line)
+            if is_comment or is_newline:
+                line_count += 1
+                continue
 
-            #push build file out to defined APIC
+            line_check = buildfile_check_clean(line, line_count)
+            curr_line = line_check[LINE]
+            result = line_check[RESULT]
+            if not result:
+                build_errors = True
+                if not validate_build:
+                    print('ERROR: Problem detected in buildfile. Please repair the located errors and run the application again.')
+                    print('Exiting program.')
+                    sys.exit(1)
             else:
-                is_comment = re.match(comment, line)
-                is_newline = re.match(newline, line)
-                #skip if newline or comment is present
-                if is_comment or is_newline:
-                    line_count += 1
-                    continue
-                else:
-                    line_check = buildfile_check_clean(line, line_count)
-                    curr_line = line_check[LINE]
-                    result = line_check[RESULT]
-                    if result:        
-                        temp_list = curr_line.split(";")
-                        category = ""
-                        subCategory = ""
-                        tempDict = {}
-                        
-                        #extract attributes for the current line and sort in dictionaries
-                        for attribute in temp_list:
-                            tup = attribute.split("=", 1)
-                            if len(tup) < 2:
-                                continue
-                            if tup[0] == 'category':
-                                category = tup[1].rstrip().replace("\n", '')
-                            elif tup[0] == 'subCategory':
-                                subCategory = tup[1].rstrip().replace("\n", '')
-                            else:
-                                tempDict[tup[0]] = tup[1].rstrip().replace("\n", '')
-                                tempDict['category'] = category
-                                tempDict['subCategory'] = subCategory
-                        _matched = True
-                        if category == 'tenant':
-                            if subCategory == 'application-profile':
-                                profiles['application-profile'].append(tempDict)
-                            elif subCategory == 'tenant':
-                                profiles['tenant'].append(tempDict)
-                            elif subCategory == 'aaep':
-                                profiles['aaep'].append(tempDict)
-                            elif subCategory == 'dhcpOptionPolicy':
-                                profiles['dhcpOptionPolicy'].append(tempDict)
-                            elif subCategory == 'dhcpOption':
-                                profiles['dhcpOption'].append(tempDict)
-                            else:
-                                _matched = False
-                        elif category == 'global':
-                            if subCategory == 'physicalDomain':
-                                profiles['domain'].append(tempDict)
-                            elif subCategory == 'routedDomain':
-                                profiles['domain'].append(tempDict)
-                            elif subCategory == 'vlanPool':
-                                profiles['vlanPool'].append(tempDict)
-                            elif subCategory == 'vlanPoolRange':
-                                profiles['vlanPoolRange'].append(tempDict)
-                            else:
-                                _matched = False
-                        elif category == 'network':
-                            if subCategory == 'epg':
-                                profiles['epg'].append(tempDict)
-                            elif subCategory == 'esg':
-                                profiles['esg'].append(tempDict)
-                            elif subCategory == 'epgToEsg':
-                                profiles['epgToEsg'].append(tempDict)
-                            elif subCategory == 'bridge-domain':
-                                profiles['bridge-domain'].append(tempDict)
-                            elif subCategory == 'dhcpRelayLabel':
-                                profiles['dhcpRelayLabel'].append(tempDict)
-                            elif subCategory == 'ndProxySubnet':
-                                profiles['ndProxySubnet'].append(tempDict)
-                            elif subCategory == 'subnet':
-                                profiles['subnet'].append(tempDict)
-                            elif subCategory == 'vrf':
-                                profiles['vrf'].append(tempDict)
-                            elif subCategory == 'protocolPolicy':
-                                profiles['protocolPolicy'].append(tempDict)
-                            elif subCategory == 'l3out':
-                                profiles['l3out'].append(tempDict)
-                            elif subCategory == 'nodeProfile':
-                                profiles['nodeProfile'].append(tempDict)
-                            elif subCategory == 'l3OutProtocol':
-                                profiles['l3OutProtocol'].append(tempDict)
-                            elif subCategory == 'intProfile':
-                                profiles['intProfile'].append(tempDict)
-                            elif subCategory == 'intProtocol':
-                                profiles['intProtocol'].append(tempDict)
-                            elif subCategory == 'bridgeDomainLink':
-                                profiles['bridgeDomainLink'].append(tempDict)
-                            elif subCategory == 'staticRoute':
-                                profiles['staticRoute'].append(tempDict)
-                            elif subCategory == 'networks':
-                                profiles['networks'].append(tempDict)
-                            elif subCategory == 'subnets':
-                                profiles['subnets'].append(tempDict)
-                            elif subCategory == 'l3OutRouteMap':
-                                profiles['l3OutRouteMap'].append(tempDict)
-                            elif subCategory == 'routeMapMatch':
-                                profiles['routeMapMatch'].append(tempDict)
-                            elif subCategory == 'routeMapRules':
-                                profiles['routeMapRules'].append(tempDict)
-                            elif subCategory == 'BGPPeer':
-                                profiles['BGPPeer'].append(tempDict)
-                            elif subCategory == 'staticPath':
-                                profiles['staticPath'].append(tempDict)
-                            else:
-                                _matched = False
-                        elif category == 'security':
-                            if subCategory == 'contract':
-                                profiles['security'].append(tempDict)
-                            elif subCategory == 'subject':
-                                profiles['security'].append(tempDict)
-                            elif subCategory == 'filter':
-                                profiles['security'].append(tempDict)
-                            elif subCategory == 'filterEntry':
-                                profiles['security'].append(tempDict)
-                            else:
-                                _matched = False
-                        elif category == 'switch':
-                            if subCategory == 'leaf':
-                                profiles['switchProfile'].append(tempDict)
-                            elif subCategory == 'spine':
-                                profiles['switchProfile'].append(tempDict)
-                            else:
-                                _matched = False
-                        elif category == 'switchPolicy':
-                            if subCategory == 'leafPolicyGroup':
-                                profiles['switchPolicy'].append(tempDict)
-                            elif subCategory == 'spinePolicyGroup':
-                                profiles['switchPolicy'].append(tempDict)
-                            elif subCategory == 'vpcProtectionGroup':
-                                profiles['switchPolicy'].append(tempDict)
-                            else:
-                                _matched = False
-                        elif category == 'interface':
-                            profiles['interface'].append(tempDict)
-                        else:
-                            _matched = False
-                        if not _matched:
-                            print('WARNING: Unknown category/subCategory "{}/{}" on line {} — line skipped.'.format(category, subCategory, line_count))
+                temp_list = curr_line.split(";")
+                category = ""
+                subCategory = ""
+                tempDict = {}
+
+                for attribute in temp_list:
+                    tup = attribute.split("=", 1)
+                    if len(tup) < 2:
+                        continue
+                    if tup[0] == 'category':
+                        category = tup[1].rstrip().replace("\n", '')
+                    elif tup[0] == 'subCategory':
+                        subCategory = tup[1].rstrip().replace("\n", '')
                     else:
-                        print('ERROR: Problem detected in buildfile. Please repair the located errors and run the application again.')
-                        print('Exiting program.')
-                        sys.exit(1)
-            #increase file line counter
+                        tempDict[tup[0]] = tup[1].rstrip().replace("\n", '')
+                        tempDict['category'] = category
+                        tempDict['subCategory'] = subCategory
+                tempDict['_line'] = line_count
+                _matched = True
+                if category == 'tenant':
+                    if subCategory == 'application-profile':
+                        profiles['application-profile'].append(tempDict)
+                    elif subCategory == 'tenant':
+                        profiles['tenant'].append(tempDict)
+                    elif subCategory == 'aaep':
+                        profiles['aaep'].append(tempDict)
+                    elif subCategory == 'dhcpOptionPolicy':
+                        profiles['dhcpOptionPolicy'].append(tempDict)
+                    elif subCategory == 'dhcpOption':
+                        profiles['dhcpOption'].append(tempDict)
+                    else:
+                        _matched = False
+                elif category == 'global':
+                    if subCategory == 'physicalDomain':
+                        profiles['domain'].append(tempDict)
+                    elif subCategory == 'routedDomain':
+                        profiles['domain'].append(tempDict)
+                    elif subCategory == 'vlanPool':
+                        profiles['vlanPool'].append(tempDict)
+                    elif subCategory == 'vlanPoolRange':
+                        profiles['vlanPoolRange'].append(tempDict)
+                    else:
+                        _matched = False
+                elif category == 'network':
+                    if subCategory == 'epg':
+                        profiles['epg'].append(tempDict)
+                    elif subCategory == 'esg':
+                        profiles['esg'].append(tempDict)
+                    elif subCategory == 'epgToEsg':
+                        profiles['epgToEsg'].append(tempDict)
+                    elif subCategory == 'bridge-domain':
+                        profiles['bridge-domain'].append(tempDict)
+                    elif subCategory == 'dhcpRelayLabel':
+                        profiles['dhcpRelayLabel'].append(tempDict)
+                    elif subCategory == 'ndProxySubnet':
+                        profiles['ndProxySubnet'].append(tempDict)
+                    elif subCategory == 'subnet':
+                        profiles['subnet'].append(tempDict)
+                    elif subCategory == 'vrf':
+                        profiles['vrf'].append(tempDict)
+                    elif subCategory == 'protocolPolicy':
+                        profiles['protocolPolicy'].append(tempDict)
+                    elif subCategory == 'l3out':
+                        profiles['l3out'].append(tempDict)
+                    elif subCategory == 'nodeProfile':
+                        profiles['nodeProfile'].append(tempDict)
+                    elif subCategory == 'l3OutProtocol':
+                        profiles['l3OutProtocol'].append(tempDict)
+                    elif subCategory == 'intProfile':
+                        profiles['intProfile'].append(tempDict)
+                    elif subCategory == 'intProtocol':
+                        profiles['intProtocol'].append(tempDict)
+                    elif subCategory == 'bridgeDomainLink':
+                        profiles['bridgeDomainLink'].append(tempDict)
+                    elif subCategory == 'staticRoute':
+                        profiles['staticRoute'].append(tempDict)
+                    elif subCategory == 'networks':
+                        profiles['networks'].append(tempDict)
+                    elif subCategory == 'subnets':
+                        profiles['subnets'].append(tempDict)
+                    elif subCategory == 'l3OutRouteMap':
+                        profiles['l3OutRouteMap'].append(tempDict)
+                    elif subCategory == 'routeMapMatch':
+                        profiles['routeMapMatch'].append(tempDict)
+                    elif subCategory == 'routeMapRules':
+                        profiles['routeMapRules'].append(tempDict)
+                    elif subCategory == 'BGPPeer':
+                        profiles['BGPPeer'].append(tempDict)
+                    elif subCategory == 'staticPath':
+                        profiles['staticPath'].append(tempDict)
+                    else:
+                        _matched = False
+                elif category == 'security':
+                    if subCategory == 'contract':
+                        profiles['security'].append(tempDict)
+                    elif subCategory == 'subject':
+                        profiles['security'].append(tempDict)
+                    elif subCategory == 'filter':
+                        profiles['security'].append(tempDict)
+                    elif subCategory == 'filterEntry':
+                        profiles['security'].append(tempDict)
+                    else:
+                        _matched = False
+                elif category == 'switch':
+                    if subCategory == 'leaf':
+                        profiles['switchProfile'].append(tempDict)
+                    elif subCategory == 'spine':
+                        profiles['switchProfile'].append(tempDict)
+                    else:
+                        _matched = False
+                elif category == 'switchPolicy':
+                    if subCategory == 'leafPolicyGroup':
+                        profiles['switchPolicy'].append(tempDict)
+                    elif subCategory == 'spinePolicyGroup':
+                        profiles['switchPolicy'].append(tempDict)
+                    elif subCategory == 'vpcProtectionGroup':
+                        profiles['switchPolicy'].append(tempDict)
+                    else:
+                        _matched = False
+                elif category == 'interface':
+                    profiles['interface'].append(tempDict)
+                else:
+                    _matched = False
+                if not _matched:
+                    print('WARNING: Unknown category/subCategory "{}/{}" on line {} — line skipped.'.format(category, subCategory, line_count))
             line_count += 1
 
+        cross_ref_warnings = check_cross_refs(profiles)
+        for w in cross_ref_warnings:
+            print(w)
+
         if validate_build:
-            if build_errors:
-                #validation failure
+            if build_errors or cross_ref_warnings:
                 print('ERROR: Build file validation failed. Please fix displayed errors before deployment.')
                 print('Exiting application.')
-                sys.exit(0)
+                sys.exit(1)
             else:
-                #validation success
                 print('STATUS: Build file validation success.')
                 print('Exiting application.')
                 sys.exit(0)
+
+        name_line_map = _build_name_line_map(profiles)
         try:
             #verbose output
             if verbose:
@@ -776,8 +927,7 @@ def main():
                 epg_dn = 'uni/tn-{}/ap-{}/epg-{}'.format(tenant_name, ap_name, epg_name)
                 cobra.model.fv.EPgSelector(fvESg,
                     name=profile.get('name', epg_name),
-                    matchEpgDn=epg_dn,
-                    matchScope=profile.get('matchScope', 'all'))
+                    matchEpgDn=epg_dn)
 
             #load vrf objects
             #if verbose:
@@ -1426,8 +1576,14 @@ def main():
                 session.commit(config_request)
                 print('STATUS: Push complete. All objects committed to', url)
             except cobra.mit.request.CommitError as err:
+                err_str = str(err)
                 print('ERROR: An error occured commiting defined MO to the APIC', url)
-                print(err)
+                print(err_str)
+                matched = [(name, lines) for name, lines in name_line_map.items() if name in err_str]
+                if matched:
+                    print('  Possible source lines in build file:')
+                    for name, lines in matched:
+                        print('    "{}" defined at line(s): {}'.format(name, ', '.join(str(l) for l in lines)))
                 print('Exiting program.')
                 exit(1)
 
