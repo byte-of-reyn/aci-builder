@@ -97,6 +97,7 @@ profiles['dhcpOptionPolicy'] = []
 profiles['dhcpOption'] = []
 
 profiles['ndProxySubnet'] = []
+profiles['staticPath'] = []
 
 profiles['switch'] = []
 profiles['switchPolicy'] = []
@@ -335,6 +336,10 @@ def main():
                                 profiles['tenant'].append(tempDict)
                             if subCategory == 'aaep':
                                 profiles['aaep'].append(tempDict)
+                            if subCategory == 'dhcpOptionPolicy':
+                                profiles['dhcpOptionPolicy'].append(tempDict)
+                            if subCategory == 'dhcpOption':
+                                profiles['dhcpOption'].append(tempDict)
                         if category == 'global':
                             if subCategory == 'physicalDomain':
                                 profiles['domain'].append(tempDict)
@@ -383,6 +388,8 @@ def main():
                                 profiles['routeMapRules'].append(tempDict)
                             if subCategory == 'BGPPeer':
                                 profiles['BGPPeer'].append(tempDict)
+                            if subCategory == 'staticPath':
+                                profiles['staticPath'].append(tempDict)
                         if category == 'security':
                             if subCategory == 'contract':
                                 profiles['security'].append(tempDict)
@@ -465,6 +472,7 @@ def main():
         temp_tenant = {}
         temp_bridge_domain = {}
         temp_app_profile = {}
+        temp_app_profile_tenant = {}
         temp_epg = {}
         temp_dhcpOption = {}
         tempVlanPool = {}
@@ -569,6 +577,7 @@ def main():
                     temp_tenant[profile['tenant']] = fvTenant
                 fvAp = cobra.model.fv.Ap(fvTenant, descr=profile['descr'], name=profile['name'], nameAlias=profile['nameAlias'], prio='unspecified')
                 temp_app_profile[profile['name']] = fvAp
+                temp_app_profile_tenant[profile['name']] = profile['tenant']
 
            #CLEAN UP REPEATED LOOPING IN THE BELOW - Transform outer dictionary into tuple for initial search
            #load security objects
@@ -629,11 +638,12 @@ def main():
                     print('STATUS: EPGs have not been defined within the build file.')
             for profile in profiles['epg']:
                 #check if available in temporary storage - if not create new object and add
-                if profile['tenant'] in temp_tenant:
-                    fvTenant = temp_tenant[profile['tenant']]
+                tenant_name = profile.get('tenant') or temp_app_profile_tenant.get(profile.get('application-profile', ''), '')
+                if tenant_name in temp_tenant:
+                    fvTenant = temp_tenant[tenant_name]
                 else:
-                    fvTenant = cobra.model.fv.Tenant(polUni, name=profile['tenant'])
-                    temp_tenant[profile['tenant']] = fvTenant
+                    fvTenant = cobra.model.fv.Tenant(polUni, name=tenant_name)
+                    temp_tenant[tenant_name] = fvTenant
                 if profile['application-profile'] in temp_app_profile:
                     fvAp = temp_app_profile[profile['application-profile']]
                 else:
@@ -642,8 +652,18 @@ def main():
                 fvAEPg = cobra.model.fv.AEPg(fvAp, descr=profile['descr'], 
                     fwdCtrl=profile['fwdCtrl'], isAttrBasedEPg=profile['isAttrBasedEPg'], matchT=profile['matchT'], name=profile['name'], 
                     nameAlias=profile['nameAlias'], pcEnfPref=profile['pcEnfPref'], prefGrMemb=profile['prefGrMemb'], prio='unspecified')
-                if profile['domain']:
+                if profile.get('domain'):
                     fvRsDomAtt = cobra.model.fv.RsDomAtt(fvAEPg, tDn='uni/phys-'+profile['domain'])
+                if profile.get('l3Domain'):
+                    for dom in profile['l3Domain'].split(','):
+                        dom = dom.strip()
+                        if dom:
+                            fvRsDomAtt = cobra.model.fv.RsDomAtt(fvAEPg, tDn='uni/l3dom-'+dom)
+                if profile.get('vmmDomain'):
+                    for dom in profile['vmmDomain'].split(','):
+                        dom = dom.strip()
+                        if dom:
+                            fvRsDomAtt = cobra.model.fv.RsDomAtt(fvAEPg, tDn='uni/vmmp-VMware/dom-'+dom)
                 if profile['contractProvide']:
                     fvRsProv = cobra.model.fv.RsProv(fvAEPg, tnVzBrCPName=profile['contractProvide'])
                 if profile['contractConsume']:
@@ -716,6 +736,21 @@ def main():
                     temp_bridge_domain[profile['bridge-domain']] = fvBD
                 fvSubnet = cobra.model.fv.Subnet(fvBD, descr=profile['descr'], ip=profile['ip'], name=profile['name'], nameAlias=profile['nameAlias'], preferred=profile['preferred'], virtual=profile['virtual'], scope=profile['scope'])
 
+            #load ND proxy RA subnets under bridge-domains
+            for profile in profiles['ndProxySubnet']:
+                if profile['bridge-domain'] in temp_bridge_domain:
+                    fvBD = temp_bridge_domain[profile['bridge-domain']]
+                else:
+                    tenant_name = profile.get('tenant', '')
+                    if tenant_name in temp_tenant:
+                        fvTenant = temp_tenant[tenant_name]
+                    else:
+                        fvTenant = cobra.model.fv.Tenant(polUni, name=tenant_name)
+                        temp_tenant[tenant_name] = fvTenant
+                    fvBD = cobra.model.fv.BD(fvTenant, name=profile['bridge-domain'])
+                    temp_bridge_domain[profile['bridge-domain']] = fvBD
+                ndRaSubnet = cobra.model.nd.RaSubnet(fvBD, ip=profile['ip'], ctrl=profile.get('ctrl', ''), descr=profile.get('descr', ''))
+
             #load links for configured bridge-domains to L3outs
             for profile in profiles['bridgeDomainLink']:
                 if verbose:
@@ -734,31 +769,40 @@ def main():
                     temp_bridge_domain[profile['bridge-domain']] = fvBD
                 fvRsBDToOut = cobra.model.fv.RsBDToOut(fvBD, tnL3extOutName=profile['l3out'])
             
-            """    
-            #load DHCP options
+            #load DHCP option policies
+            temp_dhcp_option_pol = {}
             for profile in profiles['dhcpOptionPolicy']:
-                fvTenant = temp_tenant[profile['tenant']]
+                if profile['tenant'] in temp_tenant:
+                    fvTenant = temp_tenant[profile['tenant']]
+                else:
+                    fvTenant = cobra.model.fv.Tenant(polUni, name=profile['tenant'])
+                    temp_tenant[profile['tenant']] = fvTenant
                 dhcpOptionPol = cobra.model.dhcp.OptionPol(fvTenant, descr=profile['descr'], name=profile['name'], nameAlias=profile['nameAlias'])
-                temp_dhcpOption[profile['name']] = dhcpOptionPol
-            #link options to DHCP options policy
+                temp_dhcp_option_pol[profile['name']] = dhcpOptionPol
+
             for profile in profiles['dhcpOption']:
-                dhcpOptionPol = temp_dhcpOptionPol[profile['dhcpOptionPolicy']]
+                if profile['dhcpOptionPolicy'] in temp_dhcp_option_pol:
+                    dhcpOptionPol = temp_dhcp_option_pol[profile['dhcpOptionPolicy']]
+                else:
+                    continue
                 dhcpOption = cobra.model.dhcp.Option(dhcpOptionPol, data=profile['data'], name=profile['name'], nameAlias=profile['nameAlias'])
-                
-            #load DHCP relay policies
-            dhcpRelayP = cobra.model.dhcp.RelayP(fvTenant, descr='', mode='visible', name='test_relayPol', nameAlias='', owner='tenant')
-            dhcpProvDhcp = cobra.model.dhcp.ProvDhcp(dhcpRelayP, addr='172.16.1.17', name='vlan403_epg', nameAlias='')
-            dhcpRsProv = cobra.model.dhcp.RsProv(dhcpRelayP, addr='172.16.1.17', forceResolve='yes', rType='mo', tCl='fvAEPg', tDn='uni/tn-RCH/ap-rch_domain_app/epg-vlan403_epg', tType='mo')
-            
+
             #load DHCP relay labels
             for profile in profiles['dhcpRelayLabel']:
-                fvBD = temp_bridge_domain[profile['bridge-domain']]
-                dhcpLbl = cobra.model.dhcp.Lbl(fvBD, descr=profile['descr'], name=profile['name'], nameAlias=profile['nameAlias'])
-                #link provided options policy
-                dhcpRsDhcpOptionPol = cobra.model.dhcp.RsDhcpOptionPol(dhcpLbl, tType='name', tnDhcpOptionPolName=profile['tnDhcpOptionPolName'])
-                #link provided name policy
-                #link provided options policy
-            """
+                if profile['bridge-domain'] in temp_bridge_domain:
+                    fvBD = temp_bridge_domain[profile['bridge-domain']]
+                else:
+                    tenant_name = profile.get('tenant', '')
+                    if tenant_name in temp_tenant:
+                        fvTenant = temp_tenant[tenant_name]
+                    else:
+                        fvTenant = cobra.model.fv.Tenant(polUni, name=tenant_name)
+                        temp_tenant[tenant_name] = fvTenant
+                    fvBD = cobra.model.fv.BD(fvTenant, name=profile['bridge-domain'])
+                    temp_bridge_domain[profile['bridge-domain']] = fvBD
+                dhcpLbl = cobra.model.dhcp.Lbl(fvBD, descr=profile['descr'], name=profile['name'], nameAlias=profile['nameAlias'], owner=profile.get('owner', 'tenant'))
+                if profile.get('tnDhcpOptionPolName'):
+                    dhcpRsDhcpOptionPol = cobra.model.dhcp.RsDhcpOptionPol(dhcpLbl, tType='name', tnDhcpOptionPolName=profile['tnDhcpOptionPolName'])
             #load l3out profiles
             for profile in profiles['l3out']:
                 if verbose:
@@ -1103,7 +1147,6 @@ def main():
                             infraRsMcpIfPol = cobra.model.infra.RsMcpIfPol(infraAccPortGrp, tnMcpIfPolName=profile['mcp'])
                             infraRsCdpIfPol = cobra.model.infra.RsCdpIfPol(infraAccPortGrp, tnCdpIfPolName=profile['cdp'])
                             infraRsL2IfPol = cobra.model.infra.RsL2IfPol(infraAccPortGrp, tnL2IfPolName='')
-                            infraRsQosDppIfPol = cobra.model.infra.RsQosDppIfPol(infraAccPortGrp, tnQosDppPolName='')
                             infraRsCoppIfPol = cobra.model.infra.RsCoppIfPol(infraAccPortGrp, tnCoppIfPolName='')
                             infraRsQosPfcIfPol = cobra.model.infra.RsQosPfcIfPol(infraAccPortGrp, tnQosPfcIfPolName='')
                             infraRsHIfPol = cobra.model.infra.RsHIfPol(infraAccPortGrp, tnFabricHIfPolName=profile['link-level'])
@@ -1133,7 +1176,6 @@ def main():
                             infraRsMcpIfPol = cobra.model.infra.RsMcpIfPol(infraAccBndlGrp, tnMcpIfPolName=profile['mcp'])
                             infraRsCdpIfPol = cobra.model.infra.RsCdpIfPol(infraAccBndlGrp, tnCdpIfPolName=profile['cdp'])
                             infraRsL2IfPol = cobra.model.infra.RsL2IfPol(infraAccBndlGrp, tnL2IfPolName='')
-                            infraRsQosDppIfPol = cobra.model.infra.RsQosDppIfPol(infraAccBndlGrp, tnQosDppPolName='')
                             infraRsCoppIfPol = cobra.model.infra.RsCoppIfPol(infraAccBndlGrp, tnCoppIfPolName='')
                             infraRsQosPfcIfPol = cobra.model.infra.RsQosPfcIfPol(infraAccBndlGrp, tnQosPfcIfPolName='')
                             infraRsHIfPol = cobra.model.infra.RsHIfPol(infraAccBndlGrp, tnFabricHIfPolName=profile['link-level'])
@@ -1157,7 +1199,6 @@ def main():
                             infraRsMcpIfPol = cobra.model.infra.RsMcpIfPol(infraAccBndlGrp, tnMcpIfPolName=profile['mcp'])
                             infraRsCdpIfPol = cobra.model.infra.RsCdpIfPol(infraAccBndlGrp, tnCdpIfPolName=profile['cdp'])
                             infraRsL2IfPol = cobra.model.infra.RsL2IfPol(infraAccBndlGrp, tnL2IfPolName='')
-                            infraRsQosDppIfPol = cobra.model.infra.RsQosDppIfPol(infraAccBndlGrp, tnQosDppPolName='')
                             infraRsCoppIfPol = cobra.model.infra.RsCoppIfPol(infraAccBndlGrp, tnCoppIfPolName='')
                             infraRsQosPfcIfPol = cobra.model.infra.RsQosPfcIfPol(infraAccBndlGrp, tnQosPfcIfPolName='')
                             infraRsHIfPol = cobra.model.infra.RsHIfPol(infraAccBndlGrp, tnFabricHIfPolName=profile['link-level'])
@@ -1217,25 +1258,42 @@ def main():
                             infraRsAccBaseGrp = cobra.model.infra.RsAccBaseGrp(infraHPortS, fexId=profile['leafID'], tDn='uni/infra/funcprof/accportgrp-'+profile['policyGroup'])
                         infraPortBlk = cobra.model.infra.PortBlk(infraHPortS, name=profile['blockName'], fromCard=profile['chassisCard'], fromPort=fromPort, toCard=profile['chassisCard'], toPort=toPort, descr=profile['blockDescr'])
 
-            #################################################################
-            #Static linkage of EPG to physical interface SAMPLES
-            #################################################################
-            
-            #### ACCESS PORT
-            # CHANGE MODE TO: untagged
-            
-            # 802.1P PORT
-            # Change MODE TO: native
-            
-            ### TRUNK SAMPLES
-            #ACCESS PORT SAMPLE
-            #fvRsPathAtt = cobra.model.fv.RsPathAtt(fvAEPg, descr='', encap='vlan-403', extMngdBy='', forceResolve='yes', instrImedcy='immediate', mode='regular', primaryEncap='unknown', rType='mo', tCl='fabricPathEp', tDn='topology/pod-1/paths-101/pathep-[eth1/41]', tType='mo')
-            
-            #PC SAMPLE
-            #fvRsPathAtt = cobra.model.fv.RsPathAtt(fvAEPg, descr='', encap='vlan-403', extMngdBy='', forceResolve='yes', instrImedcy='immediate', mode='regular', primaryEncap='unknown', rType='mo', tCl='fabricPathEp', tDn='topology/pod-1/paths-102/pathep-[testRouter03_pc]', tType='mo')
-            
-            #VPC SAMPLE
-            #fvRsPathAtt = cobra.model.fv.RsPathAtt(fvAEPg, descr='', encap='vlan-403', extMngdBy='', forceResolve='yes', instrImedcy='immediate', mode='regular', primaryEncap='unknown', rType='mo', tCl='fabricPathEp', tDn='topology/pod-1/protpaths-101-102/pathep-[test_vpc]', tType='mo')        
+            #load static EPG path bindings (access, port-channel, vpc)
+            for profile in profiles['staticPath']:
+                epg_name = profile.get('epg', '')
+                ap_name = profile.get('application-profile', '')
+                tenant_name = profile.get('tenant', '')
+                if epg_name in temp_epg:
+                    fvAEPg = temp_epg[epg_name]
+                else:
+                    if tenant_name in temp_tenant:
+                        fvTenant = temp_tenant[tenant_name]
+                    else:
+                        fvTenant = cobra.model.fv.Tenant(polUni, name=tenant_name)
+                        temp_tenant[tenant_name] = fvTenant
+                    if ap_name in temp_app_profile:
+                        fvAp = temp_app_profile[ap_name]
+                    else:
+                        fvAp = cobra.model.fv.Ap(fvTenant, name=ap_name)
+                        temp_app_profile[ap_name] = fvAp
+                    fvAEPg = cobra.model.fv.AEPg(fvAp, name=epg_name)
+                    temp_epg[epg_name] = fvAEPg
+                path_type = profile.get('pathType', 'access')
+                pod_id = profile.get('podID', '1')
+                node_id = profile.get('nodeID', '')
+                if path_type == 'vpc':
+                    tDn = 'topology/pod-{}/protpaths-{}-{}/pathep-[{}]'.format(pod_id, node_id, profile.get('nodeID2', ''), profile.get('pathep', ''))
+                elif path_type == 'pc':
+                    tDn = 'topology/pod-{}/paths-{}/pathep-[{}]'.format(pod_id, node_id, profile.get('pathep', ''))
+                else:
+                    tDn = 'topology/pod-{}/paths-{}/pathep-[eth{}/{}]'.format(pod_id, node_id, profile.get('card', '1'), profile.get('port', ''))
+                encap_val = profile.get('encap', '').replace('vlan-', '')
+                fvRsPathAtt = cobra.model.fv.RsPathAtt(fvAEPg,
+                    descr=profile.get('descr', ''),
+                    encap='vlan-' + encap_val,
+                    instrImedcy=profile.get('instrImedcy', 'lazy'),
+                    mode=profile.get('mode', 'regular'),
+                    tDn=tDn)        
                     
         except OSError as err:
             print('ERROR: Unable to create MO via Cobra framework. Check your loadsheet variables!')
@@ -1247,8 +1305,8 @@ def main():
             config_request = cobra.mit.request.ConfigRequest()
             config_request.addMo(polUni)
             session.commit(config_request)
-        except requests.CommitError as err:
-            print('ERROR: An error occured commiting defined MO to the APIC', URL)
+        except cobra.mit.request.CommitError as err:
+            print('ERROR: An error occured commiting defined MO to the APIC', url)
             print(err)
             print('Exiting program.')
             exit(1)
