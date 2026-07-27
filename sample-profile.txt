@@ -184,10 +184,16 @@ category=network;subCategory=intProtocol;nodeProfile=sample_node_profile;protoco
 ### STATIC ROUTE ###
 category=network;subCategory=staticRoute;nodeProfile=sample_node_profile;podID=1;nodeID=101;ip=0.0.0.0/0;nhAddr=10.0.0.2
 
-### BGP PEER ###
+### BGP PEER — NODE LEVEL (loopback/unnumbered peering) ###
 # ctrl: send-com | send-ext-com | allow-self-as | as-override | dis-peer-as-check | nh-self — comma-separated
 # peerCtrl: bfd | dis-conn-check — comma-separated, or leave blank
+# localASN: leave blank to inherit the fabric/L3Out ASN instead of overriding per-peer
 category=network;subCategory=BGPPeer;nodeProfile=sample_node_profile;localAddr=10.0.0.2;allowedSelfAsCnt=3;ctrl=send-com,send-ext-com;peerCtrl=bfd;multihopValue=1;weight=0;prefixPolicy=;localASN=65001;remoteASN=65002
+
+### BGP PEER — INTERFACE LEVEL (peer attached to a specific routed interface) ###
+# intProfile: name of an intProfile defined above; the peer is attached to that interface's path attachment
+# ctrl / peerCtrl / localASN follow the same rules as the node-level BGP peer above
+category=network;subCategory=BGPPeerIntf;intProfile=sample_int_profile;localAddr=10.0.0.2;allowedSelfAsCnt=3;ctrl=send-com,send-ext-com;peerCtrl=bfd;multihopValue=1;weight=0;prefixPolicy=;localASN=;remoteASN=65002
 
 ### EXTERNAL NETWORK (L3Out EPG) ###
 # prefGrMemb: include | exclude

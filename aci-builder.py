@@ -86,6 +86,7 @@ profiles['staticRoute'] = []
 profiles['networks'] = []
 profiles['subnets'] = []
 profiles['BGPPeer'] = []
+profiles['BGPPeerIntf'] = []
 profiles['l3OutRouteMap'] = []
 profiles['routeMapMatch'] = []
 profiles['routeMapRules'] = []
@@ -226,6 +227,7 @@ def check_cross_refs(profiles):
     domain_names      = {p['name'] for p in profiles['domain']}
     l3out_names       = {p['name'] for p in profiles['l3out']}
     node_profile_names = {p['name'] for p in profiles['nodeProfile']}
+    int_profile_names  = {p['name'] for p in profiles['intProfile']}
     network_names     = {p['name'] for p in profiles['networks']}
     route_map_contexts = {p['contextName'] for p in profiles['l3OutRouteMap']}
     route_map_subjects = {p['name'] for p in profiles['routeMapMatch']}
@@ -356,6 +358,10 @@ def check_cross_refs(profiles):
     for p in profiles['staticPath']:
         if p.get('epg') and p['epg'] not in epg_names:
             warn("staticPath references unknown epg '{}'".format(p['epg']), p.get('_line'))
+
+    for p in profiles['BGPPeerIntf']:
+        if p.get('intProfile') and p['intProfile'] not in int_profile_names:
+            warn("BGPPeerIntf references unknown intProfile '{}'".format(p['intProfile']), p.get('_line'))
 
     return warnings
 
@@ -562,6 +568,8 @@ def main():
                         profiles['routeMapRules'].append(tempDict)
                     elif subCategory == 'BGPPeer':
                         profiles['BGPPeer'].append(tempDict)
+                    elif subCategory == 'BGPPeerIntf':
+                        profiles['BGPPeerIntf'].append(tempDict)
                     elif subCategory == 'staticPath':
                         profiles['staticPath'].append(tempDict)
                     else:
@@ -666,6 +674,7 @@ def main():
         tempSubject = {}
         tempLeafProfile = {}
         tempIntProfile = {}
+        tempPathAtt = {}
         
         #L3Out related object storage
         tempL3Out = {}
@@ -1250,6 +1259,7 @@ def main():
                     continue
 
                 tempIntProfile[profile['name']] = l3extLIfP
+                tempPathAtt[profile['name']] = l3extRsPathL3OutAtt
 
                 #attach protocol and policy profiles to the interface profile
                 if profile['bfdProfile']:
@@ -1302,7 +1312,20 @@ def main():
                     tempNodeProfile[profile['nodeProfile']] = l3extLNodeP
                 bgpPeerP = cobra.model.bgp.PeerP(l3extLNodeP, addr=profile['localAddr'], allowedSelfAsCnt=profile['allowedSelfAsCnt'], ctrl=profile['ctrl'], peerCtrl=profile['peerCtrl'], privateASctrl='', ttl=profile['multihopValue'], weight=profile['weight'])
                 bgpRsPeerPfxPol = cobra.model.bgp.RsPeerPfxPol(bgpPeerP, tnBgpPeerPfxPolName=profile['prefixPolicy'])
-                bgpLocalAsnP = cobra.model.bgp.LocalAsnP(bgpPeerP, localAsn=profile['localASN'])
+                if profile['localASN']:
+                    bgpLocalAsnP = cobra.model.bgp.LocalAsnP(bgpPeerP, localAsn=profile['localASN'])
+                bgpAsP = cobra.model.bgp.AsP(bgpPeerP, asn=profile['remoteASN'])
+
+            #BGP peer profile link to a specific interface path (l3ext:RsPathL3OutAtt)
+            for profile in profiles['BGPPeerIntf']:
+                if profile['intProfile'] not in tempPathAtt:
+                    print('WARNING: BGPPeerIntf references unknown intProfile "{}" — skipping.'.format(profile['intProfile']))
+                    continue
+                l3extRsPathL3OutAtt = tempPathAtt[profile['intProfile']]
+                bgpPeerP = cobra.model.bgp.PeerP(l3extRsPathL3OutAtt, addr=profile['localAddr'], allowedSelfAsCnt=profile['allowedSelfAsCnt'], ctrl=profile['ctrl'], peerCtrl=profile['peerCtrl'], privateASctrl='', ttl=profile['multihopValue'], weight=profile['weight'])
+                bgpRsPeerPfxPol = cobra.model.bgp.RsPeerPfxPol(bgpPeerP, tnBgpPeerPfxPolName=profile['prefixPolicy'])
+                if profile['localASN']:
+                    bgpLocalAsnP = cobra.model.bgp.LocalAsnP(bgpPeerP, localAsn=profile['localASN'])
                 bgpAsP = cobra.model.bgp.AsP(bgpPeerP, asn=profile['remoteASN'])
 
             #create the base leaf switch policy groups (CUSTOM ATTACHED POLICIES ARE NOT YET SUPPORTED)
