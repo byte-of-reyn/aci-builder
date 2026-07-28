@@ -736,7 +736,8 @@ def main():
                 if profile['subCategory'] == 'routedDomain':
                     l3extDomP = cobra.model.l3ext.DomP(polUni, name=profile['name'], nameAlias=profile['nameAlias'], descr=profile['descr'])
                     tempDomain[profile['name']] = l3extDomP
-                    infraRsVlanNs = cobra.model.infra.RsVlanNs(l3extDomP, tDn='uni/infra/vlanns-['+profile['poolName']+']-'+profile['poolType'])
+                    if profile['poolName']:
+                        infraRsVlanNs = cobra.model.infra.RsVlanNs(l3extDomP, tDn='uni/infra/vlanns-['+profile['poolName']+']-'+profile['poolType'])
                     if profile['securityDomain']:
                         aaaDomainRef = cobra.model.aaa.DomainRef(l3extDomP, name=profile['securityDomain'])
 
@@ -1109,10 +1110,13 @@ def main():
                     l3extOut = cobra.model.l3ext.Out(fvTenant, name=profile['L3Out'])
                     tempL3Out[profile['L3Out']] = l3extOut
                 nodeDN = 'topology/pod-'+profile['podID']+'/node-'+profile['nodeID']
-                l3extLNodeP = cobra.model.l3ext.LNodeP(l3extOut, descr=profile['descr'], name=profile['name'], nameAlias=profile['nameAlias'], targetDscp=profile['targetDscp'])
+                if profile['name'] in tempNodeProfile:
+                    l3extLNodeP = tempNodeProfile[profile['name']]
+                else:
+                    l3extLNodeP = cobra.model.l3ext.LNodeP(l3extOut, descr=profile['descr'], name=profile['name'], nameAlias=profile['nameAlias'], targetDscp=profile['targetDscp'])
+                    tempNodeProfile[profile['name']] = l3extLNodeP
                 l3extRsNodeL3OutAtt = cobra.model.l3ext.RsNodeL3OutAtt(l3extLNodeP, rtrId=profile['rtrId'], rtrIdLoopBack=profile['rtrIdLoopBack'], tDn=nodeDN)
                 l3extInfraNodeP = cobra.model.l3ext.InfraNodeP(l3extRsNodeL3OutAtt, fabricExtCtrlPeering='no', fabricExtIntersiteCtrlPeering='no')
-                tempNodeProfile[profile['name']] = l3extLNodeP
                 
                 #store node attributes for later reference
                 if nodeDN in tempNodeAttribute.keys():

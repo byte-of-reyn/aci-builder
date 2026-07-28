@@ -24,6 +24,7 @@ category=global;subCategory=vlanPoolRange;vlanPool=sample_l3_vlan_pool;name=samp
 category=global;subCategory=physicalDomain;name=sample_phyDom;nameAlias=;descr=;poolName=sample_vlan_pool;poolType=static;securityDomain=
 
 ### ROUTED (L3) DOMAIN ###
+# poolName/poolType may be left blank if the L3Out only uses routed sub-interfaces/ports (no VLAN encapsulation)
 category=global;subCategory=routedDomain;name=sample_l3Dom;nameAlias=;descr=;poolName=sample_l3_vlan_pool;poolType=static;securityDomain=
 
 ################################################################
