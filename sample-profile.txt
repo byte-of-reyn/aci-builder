@@ -217,6 +217,37 @@ category=network;subCategory=routeMapMatch;tenant=SAMPLE_TENANT;type=match;name=
 category=network;subCategory=routeMapRules;L3Out=sample_l3out;context=sample_ctx;subjectName=sample_match_rule
 
 ################################################################
+### L2OUT OBJECTS
+################################################################
+
+### L2 DOMAIN ###
+# poolName/poolType may be left blank if the L2Out ports carry no VLAN encapsulation
+category=global;subCategory=l2Domain;name=sample_l2Dom;nameAlias=;descr=;poolName=sample_vlan_pool;poolType=static;securityDomain=
+
+### L2OUT ###
+# extDomain: the l2Domain defined above (uni/l2dom-)
+# bridge-domain / encapVlan: binds the L2Out to a BD and sets the external encapsulation VLAN
+category=network;subCategory=l2out;tenant=SAMPLE_TENANT;name=sample_l2out;nameAlias=;descr=;targetDscp=unspecified;extDomain=sample_l2Dom;bridge-domain=sample_bd;encapVlan=100
+
+### L2OUT EXTERNAL EPG (eepg) ###
+# prefGrMemb: include | exclude
+# conConsume / conProvide: contract name (leave blank if none)
+category=network;subCategory=l2outEpg;L2Out=sample_l2out;name=sample_l2out_epg;nameAlias=;descr=;prefGrMemb=exclude;prio=unspecified;targetDscp=unspecified;conConsume=sample_con;conProvide=
+
+### L2OUT NODE PROFILE ###
+category=network;subCategory=l2outNodeProfile;L2Out=sample_l2out;name=sample_l2out_node_profile;nameAlias=;descr=
+
+### L2OUT INTERFACE PROFILE — ACCESS PORT ###
+# pathType: access | pc | vpc
+category=network;subCategory=l2outIntProfile;nodeProfile=sample_l2out_node_profile;name=sample_l2out_int_profile;nameAlias=;descr=;pathType=access;podID=1;nodeID=101;card=1;port=3;targetDscp=unspecified
+
+### L2OUT INTERFACE PROFILE — PORT CHANNEL ###
+category=network;subCategory=l2outIntProfile;nodeProfile=sample_l2out_node_profile;name=sample_l2out_pc_profile;nameAlias=;descr=;pathType=pc;podID=1;nodeID=101;pathep=sample_pc_pol_grp;targetDscp=unspecified
+
+### L2OUT INTERFACE PROFILE — VPC ###
+category=network;subCategory=l2outIntProfile;nodeProfile=sample_l2out_node_profile;name=sample_l2out_vpc_profile;nameAlias=;descr=;pathType=vpc;podID=1;nodeID=101;nodeID2=102;pathep=sample_vpc_pol_grp;targetDscp=unspecified
+
+################################################################
 ### SWITCH POLICY OBJECTS
 ################################################################
 

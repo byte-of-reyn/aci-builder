@@ -19,6 +19,7 @@ import cobra.model.fv
 import cobra.model.fvns
 import cobra.model.ip
 import cobra.model.l3ext
+import cobra.model.l2ext
 import cobra.model.dhcp
 import cobra.model.vns
 import cobra.model.nd
@@ -90,6 +91,12 @@ profiles['BGPPeerIntf'] = []
 profiles['l3OutRouteMap'] = []
 profiles['routeMapMatch'] = []
 profiles['routeMapRules'] = []
+
+#l2out (external bridged network) objects
+profiles['l2out'] = []
+profiles['l2outEpg'] = []
+profiles['l2outNodeProfile'] = []
+profiles['l2outIntProfile'] = []
 
 profiles['subnet'] = []
 profiles['dhcpRelayLabel'] = []
@@ -233,6 +240,8 @@ def check_cross_refs(profiles):
     route_map_subjects = {p['name'] for p in profiles['routeMapMatch']}
     dhcp_opt_pol_names = {p['name'] for p in profiles['dhcpOptionPolicy']}
     esg_names         = {p['name'] for p in profiles['esg']}
+    l2out_names       = {p['name'] for p in profiles['l2out']}
+    l2out_node_profile_names = {p['name'] for p in profiles['l2outNodeProfile']}
 
     def warn(msg, line=None):
         prefix = 'line {}: '.format(line) if line else ''
@@ -343,6 +352,28 @@ def check_cross_refs(profiles):
             warn("routeMapRules references unknown route-map context '{}'".format(p['context']), p.get('_line'))
         if p.get('subjectName') and p['subjectName'] not in route_map_subjects:
             warn("routeMapRules references unknown match rule '{}'".format(p['subjectName']), p.get('_line'))
+
+    for p in profiles['l2out']:
+        if p.get('bridge-domain') and p['bridge-domain'] not in bd_names:
+            warn("l2out '{}' references unknown bridge-domain '{}'".format(p['name'], p['bridge-domain']), p.get('_line'))
+        if p.get('extDomain') and p['extDomain'] not in domain_names:
+            warn("l2out '{}' references unknown domain '{}'".format(p['name'], p['extDomain']), p.get('_line'))
+
+    for p in profiles['l2outEpg']:
+        if p.get('L2Out') and p['L2Out'] not in l2out_names:
+            warn("l2outEpg '{}' references unknown l2out '{}'".format(p.get('name', ''), p['L2Out']), p.get('_line'))
+        if p.get('conConsume') and p['conConsume'] not in contract_names:
+            warn("l2outEpg '{}' consumes unknown contract '{}'".format(p.get('name', ''), p['conConsume']), p.get('_line'))
+        if p.get('conProvide') and p['conProvide'] not in contract_names:
+            warn("l2outEpg '{}' provides unknown contract '{}'".format(p.get('name', ''), p['conProvide']), p.get('_line'))
+
+    for p in profiles['l2outNodeProfile']:
+        if p.get('L2Out') and p['L2Out'] not in l2out_names:
+            warn("l2outNodeProfile '{}' references unknown l2out '{}'".format(p['name'], p['L2Out']), p.get('_line'))
+
+    for p in profiles['l2outIntProfile']:
+        if p.get('nodeProfile') and p['nodeProfile'] not in l2out_node_profile_names:
+            warn("l2outIntProfile '{}' references unknown nodeProfile '{}'".format(p.get('name', ''), p['nodeProfile']), p.get('_line'))
 
     for p in profiles['security']:
         if p['subCategory'] == 'subject':
@@ -517,6 +548,8 @@ def main():
                         profiles['domain'].append(tempDict)
                     elif subCategory == 'routedDomain':
                         profiles['domain'].append(tempDict)
+                    elif subCategory == 'l2Domain':
+                        profiles['domain'].append(tempDict)
                     elif subCategory == 'vlanPool':
                         profiles['vlanPool'].append(tempDict)
                     elif subCategory == 'vlanPoolRange':
@@ -566,6 +599,14 @@ def main():
                         profiles['routeMapMatch'].append(tempDict)
                     elif subCategory == 'routeMapRules':
                         profiles['routeMapRules'].append(tempDict)
+                    elif subCategory == 'l2out':
+                        profiles['l2out'].append(tempDict)
+                    elif subCategory == 'l2outEpg':
+                        profiles['l2outEpg'].append(tempDict)
+                    elif subCategory == 'l2outNodeProfile':
+                        profiles['l2outNodeProfile'].append(tempDict)
+                    elif subCategory == 'l2outIntProfile':
+                        profiles['l2outIntProfile'].append(tempDict)
                     elif subCategory == 'BGPPeer':
                         profiles['BGPPeer'].append(tempDict)
                     elif subCategory == 'BGPPeerIntf':
@@ -740,6 +781,13 @@ def main():
                         infraRsVlanNs = cobra.model.infra.RsVlanNs(l3extDomP, tDn='uni/infra/vlanns-['+profile['poolName']+']-'+profile['poolType'])
                     if profile['securityDomain']:
                         aaaDomainRef = cobra.model.aaa.DomainRef(l3extDomP, name=profile['securityDomain'])
+                if profile['subCategory'] == 'l2Domain':
+                    l2extDomP = cobra.model.l2ext.DomP(polUni, name=profile['name'], nameAlias=profile['nameAlias'], descr=profile['descr'])
+                    tempDomain[profile['name']] = l2extDomP
+                    if profile['poolName']:
+                        infraRsVlanNs = cobra.model.infra.RsVlanNs(l2extDomP, tDn='uni/infra/vlanns-['+profile['poolName']+']-'+profile['poolType'])
+                    if profile['securityDomain']:
+                        aaaDomainRef = cobra.model.aaa.DomainRef(l2extDomP, name=profile['securityDomain'])
 
             #begin load of tenant objects in required sequence
             #load tenant objects
@@ -1331,6 +1379,83 @@ def main():
                 if profile['localASN']:
                     bgpLocalAsnP = cobra.model.bgp.LocalAsnP(bgpPeerP, localAsn=profile['localASN'])
                 bgpAsP = cobra.model.bgp.AsP(bgpPeerP, asn=profile['remoteASN'])
+
+            #load l2out profiles
+            tempL2Out = {}
+            if verbose:
+                count = len(profiles['l2out'])
+                if count > 0:
+                    print('STATUS: Found x{} L2Out profiles. Loading into top-level object.'.format(count))
+                else:
+                    print('STATUS: L2Out profiles have not been defined within the build file.')
+            for profile in profiles['l2out']:
+                tenant_name = profile.get('tenant', '')
+                if tenant_name in temp_tenant:
+                    fvTenant = temp_tenant[tenant_name]
+                else:
+                    fvTenant = cobra.model.fv.Tenant(polUni, name=tenant_name)
+                    temp_tenant[tenant_name] = fvTenant
+                l2extOut = cobra.model.l2ext.Out(fvTenant, descr=profile.get('descr', ''), name=profile['name'],
+                    nameAlias=profile.get('nameAlias', ''), targetDscp=profile.get('targetDscp', 'unspecified'))
+                if profile.get('extDomain'):
+                    l2extRsL2DomAtt = cobra.model.l2ext.RsL2DomAtt(l2extOut, tDn='uni/l2dom-'+profile['extDomain'])
+                #bind the L2Out to its bridge-domain, carrying the external encapsulation VLAN
+                if profile.get('bridge-domain'):
+                    l2extRsEBd = cobra.model.l2ext.RsEBd(l2extOut, tnFvBDName=profile['bridge-domain'], encap='vlan-'+profile.get('encapVlan', ''))
+                tempL2Out[profile['name']] = l2extOut
+
+            #load l2out external EPGs (eepg)
+            if verbose:
+                count = len(profiles['l2outEpg'])
+                if count > 0:
+                    print('STATUS: Found x{} L2Out external EPGs. Loading into top-level object.'.format(count))
+                else:
+                    print('STATUS: L2Out external EPGs have not been defined within the build file.')
+            for profile in profiles['l2outEpg']:
+                if profile['L2Out'] in tempL2Out:
+                    l2extOut = tempL2Out[profile['L2Out']]
+                else:
+                    l2extOut = cobra.model.l2ext.Out(fvTenant, name=profile['L2Out'])
+                    tempL2Out[profile['L2Out']] = l2extOut
+                l2extInstP = cobra.model.l2ext.InstP(l2extOut, descr=profile.get('descr', ''), name=profile['name'],
+                    nameAlias=profile.get('nameAlias', ''), prefGrMemb=profile.get('prefGrMemb', 'exclude'),
+                    prio=profile.get('prio', 'unspecified'), targetDscp=profile.get('targetDscp', 'unspecified'))
+                if profile.get('conConsume'):
+                    fvRsCons = cobra.model.fv.RsCons(l2extInstP, tnVzBrCPName=profile['conConsume'])
+                if profile.get('conProvide'):
+                    fvRsProv = cobra.model.fv.RsProv(l2extInstP, tnVzBrCPName=profile['conProvide'])
+
+            #load l2out node profiles
+            tempL2OutNodeProfile = {}
+            for profile in profiles['l2outNodeProfile']:
+                if profile['L2Out'] in tempL2Out:
+                    l2extOut = tempL2Out[profile['L2Out']]
+                else:
+                    l2extOut = cobra.model.l2ext.Out(fvTenant, name=profile['L2Out'])
+                    tempL2Out[profile['L2Out']] = l2extOut
+                l2extLNodeP = cobra.model.l2ext.LNodeP(l2extOut, descr=profile.get('descr', ''), name=profile['name'],
+                    nameAlias=profile.get('nameAlias', ''))
+                tempL2OutNodeProfile[profile['name']] = l2extLNodeP
+
+            #attach l2out interface profiles to physical/PC/VPC paths
+            for profile in profiles['l2outIntProfile']:
+                if profile['nodeProfile'] not in tempL2OutNodeProfile:
+                    print('WARNING: l2outIntProfile "{}" references unknown nodeProfile "{}" — skipping.'.format(profile.get('name', ''), profile['nodeProfile']))
+                    continue
+                l2extLNodeP = tempL2OutNodeProfile[profile['nodeProfile']]
+                l2extLIfP = cobra.model.l2ext.LIfP(l2extLNodeP, descr=profile.get('descr', ''), name=profile['name'],
+                    nameAlias=profile.get('nameAlias', ''))
+                path_type = profile.get('pathType', 'access')
+                pod_id = profile.get('podID', '1')
+                node_id = profile.get('nodeID', '')
+                if path_type == 'vpc':
+                    tDn = 'topology/pod-{}/protpaths-{}-{}/pathep-[{}]'.format(pod_id, node_id, profile.get('nodeID2', ''), profile.get('pathep', ''))
+                elif path_type == 'pc':
+                    tDn = 'topology/pod-{}/paths-{}/pathep-[{}]'.format(pod_id, node_id, profile.get('pathep', ''))
+                else:
+                    tDn = 'topology/pod-{}/paths-{}/pathep-[eth{}/{}]'.format(pod_id, node_id, profile.get('card', '1'), profile.get('port', ''))
+                l2extRsPathL2OutAtt = cobra.model.l2ext.RsPathL2OutAtt(l2extLIfP, descr=profile.get('descr', ''), tDn=tDn,
+                    targetDscp=profile.get('targetDscp', 'unspecified'))
 
             #create the base leaf switch policy groups (CUSTOM ATTACHED POLICIES ARE NOT YET SUPPORTED)
             if verbose:
